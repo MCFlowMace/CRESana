@@ -1,2 +1,2 @@
-# CRES-SM
+# CRESana
 Analytic CRES signal modeling
