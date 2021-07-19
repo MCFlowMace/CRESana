@@ -11,9 +11,15 @@ __all__ = []
 
 import numpy as np
 
-def get_omega_axial(v_0, theta_bot, L_0):
+from .physicsconstants import speed_of_light, E0_electron
 
+def get_omega_axial(E_kin, theta_bot, L_0):
+
+    v_0 = get_relativistic_velocity(E_kin)
+    print(v_0)
     return v_0*np.sin(theta_bot)/L_0
+    #z_max = get_z_max(theta_bot, L_0)
+   # return v_0/z_max
 
 def get_z_max(theta_bot, L_0):
 
@@ -23,3 +29,12 @@ def get_z(t, z_max, omega_a, phi_a):
 
     return z_max*np.sin(omega_a*t + phi_a)
 
+def get_relativistic_velocity(E_kin):
+
+    '''
+    E_kin - electron kinetic energy in eV
+    '''
+
+    relative_energy = E0_electron/(E0_electron + E_kin)
+
+    return np.sqrt(1-relative_energy**2)*speed_of_light
