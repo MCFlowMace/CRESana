@@ -71,11 +71,15 @@ class Electron:
 class Trap(ABC):
 
     @abstractmethod
-    def trajectory(self):
+    def trajectory(self, electron: Electron):
         pass
 
     @abstractmethod
     def B_field(self, z):
+        pass
+
+    @abstractmethod
+    def get_f(self, electron: Electron):
         pass
 
 def harmonic_potential(z, B0, L0):
@@ -130,6 +134,9 @@ class HarmonicTrap(Trap):
 
         return get_z_max_harmonic(self._L0, electron.pitch)
 
+    def get_f(self, electron: Electron):
+        return self._get_omega(electron)/(2*np.pi)
+
 class BoxTrap(Trap):
 
     def __init__(self, B0, L):
@@ -162,6 +169,9 @@ class BoxTrap(Trap):
     def _get_z_max(self):
 
         return self._L/2
+
+    def get_f(self, electron: Electron):
+        return self._get_omega(electron)/(2*np.pi)
 
 
 class BathtubTrap(Trap):
@@ -236,6 +246,9 @@ class BathtubTrap(Trap):
     def _get_z_max(self, electron: Electron):
 
         return get_z_max_harmonic(self._L0, electron.pitch)
+
+    def get_f(self, electron: Electron):
+        return 1/self._period(electron)
 
 
 class ArbitraryTrap(Trap):
