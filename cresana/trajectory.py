@@ -88,7 +88,12 @@ def harmonic_potential(z, B0, L0):
 
 def flat_potential(z, B0):
 
-    return np.full(z.shape, B0)
+    if type(z) == np.ndarray:
+        potential = np.full(z.shape, B0)
+    else:
+        potential = np.array([B0])
+
+    return potential
 
 def get_z_harmonic(t, z_max, omega, phi):
 
