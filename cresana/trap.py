@@ -3,7 +3,7 @@
 """
 
 Author: F. Thomas
-Date: July 26, 2021
+Date: August 11, 2021
 
 """
 
@@ -15,58 +15,6 @@ from scipy.signal import sawtooth
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
-
-
-def get_relativistic_velocity(E_kin):
-
-    '''
-    E_kin - electron kinetic energy in eV
-    '''
-
-    relative_energy = E0_electron/(E0_electron + E_kin)
-
-    return np.sqrt(1-relative_energy**2)*speed_of_light
-
-def get_pos(x, y, z):
-
-    return np.vstack((x,y,z)).transpose()
-
-def get_x(R, phi):
-
-    return R*np.cos(phi)
-
-def get_y(R, phi):
-
-    return R*np.sin(phi)
-
-def gradB_phase(t, omega, phi):
-
-    return t*omega + phi
-
-class Electron:
-
-    def __init__(self, E_kin, pitch, r=0, phi=0, z0=0, v_phi=0):
-
-        self._E_kin = E_kin
-        self._pitch = pitch/180*np.pi
-        self._x0 = r*np.cos(phi)
-        self._y0 = r*np.sin(phi)
-        self._z0 = z0
-        self._v_phi = v_phi
-        self._v0 = get_relativistic_velocity(E_kin)
-
-    @property
-    def E_kin(self):
-        return self._E_kin
-
-    @property
-    def pitch(self):
-        return self._pitch
-
-    @property
-    def v0(self):
-        return self._v0
-
 
 class Trap(ABC):
 
