@@ -15,10 +15,7 @@ from scipy.signal import sawtooth
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
-
-def get_pos(x, y, z):
-
-    return np.vstack((x,y,z)).transpose()
+from .utility import get_pos
 
 class Trap(ABC):
 
