@@ -8,4 +8,5 @@ Date: July 19, 2021
 
 #from .axialmotion import
 
-from .trajectory import Electron, HarmonicTrap, BoxTrap, BathtubTrap
+from .trap import HarmonicTrap, BoxTrap, BathtubTrap
+from .electronsim import Electron, simulate_electron
