@@ -16,7 +16,6 @@ import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
 
-
 def get_relativistic_velocity(E_kin):
 
     '''
@@ -26,10 +25,6 @@ def get_relativistic_velocity(E_kin):
     relative_energy = E0_electron/(E0_electron + E_kin)
 
     return np.sqrt(1-relative_energy**2)*speed_of_light
-
-def get_pos(x, y, z):
-
-    return np.vstack((x,y,z)).transpose()
 
 def get_x(R, phi):
 
@@ -99,16 +94,23 @@ class ElectronSim:
     ----------
     coords : numpy.ndarray
         Trajectory of the electron.
-    t_max : float
-        Simulation time.
+    t      : numpy.ndarray
+        Sampling times.
     B_vals : numpy.ndarray
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords,  t_max, B_vals):
+    def __init__(self, coords, t, B_vals):
 
         self.coords = coords
-        self.t_max = t_max
+        self.t = t
         self.B_vals = B_vals
 
 
+def simulate_electron(electron, sampler, trap):
+
+    t = sampler()
+    coords = trap.trajectory(electron)(t)
+    B_vals = trap.B_field(coords[:,2])
+
+    return ElectronSim(coords, t, B_vals)
