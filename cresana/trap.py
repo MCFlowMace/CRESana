@@ -16,10 +16,14 @@ import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
 
+def get_pos(x, y, z):
+
+    return np.vstack((x,y,z)).transpose()
+
 class Trap(ABC):
 
     @abstractmethod
-    def trajectory(self, electron: Electron):
+    def trajectory(self, electron):
         pass
 
     @abstractmethod
@@ -27,7 +31,7 @@ class Trap(ABC):
         pass
 
     @abstractmethod
-    def get_f(self, electron: Electron):
+    def get_f(self, electron):
         pass
 
 def harmonic_potential(z, B0, L0):
@@ -66,7 +70,7 @@ class HarmonicTrap(Trap):
         self._B0 = B0
         self._L0 = L0
 
-    def trajectory(self, electron: Electron):
+    def trajectory(self, electron):
 
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
@@ -79,15 +83,15 @@ class HarmonicTrap(Trap):
 
         return harmonic_potential(z, self._B0, self._L0)
 
-    def _get_omega(self, electron: Electron):
+    def _get_omega(self, electron):
 
         return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
 
-    def _get_z_max(self, electron: Electron):
+    def _get_z_max(self, electron):
 
         return get_z_max_harmonic(self._L0, electron.pitch)
 
-    def get_f(self, electron: Electron):
+    def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
 
 class BoxTrap(Trap):
@@ -97,7 +101,7 @@ class BoxTrap(Trap):
         self._B0 = B0
         self._L = L
 
-    def trajectory(self, electron: Electron):
+    def trajectory(self, electron):
 
         omega = self._get_omega(electron)
         z_max = self._get_z_max()
@@ -115,7 +119,7 @@ class BoxTrap(Trap):
 
         return B
 
-    def _get_omega(self, electron: Electron):
+    def _get_omega(self, electron):
 
         return electron.v0*np.cos(electron.pitch)*np.pi/self._L
 
@@ -123,7 +127,7 @@ class BoxTrap(Trap):
 
         return self._L/2
 
-    def get_f(self, electron: Electron):
+    def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
 
 
@@ -135,7 +139,7 @@ class BathtubTrap(Trap):
         self._L = L
         self._L0 = L0
 
-    def trajectory(self, electron: Electron):
+    def trajectory(self, electron):
 
         return lambda t: get_pos(   np.zeros(t.shape),
                             np.zeros(t.shape),
@@ -156,14 +160,14 @@ class BathtubTrap(Trap):
 
         return B
 
-    def _period(self, electron: Electron):
+    def _period(self, electron):
 
         flat_time = self._L/(electron.v0*np.cos(electron.pitch))
         harmonic_time = np.pi/get_omega_harmonic(electron.v0, electron.pitch, self._L0)
 
         return 2*(flat_time+harmonic_time)
 
-    def _get_z(self, electron: Electron, t):
+    def _get_z(self, electron, t):
 
         v_axial = electron.v0 * np.cos(electron.pitch)
         omega = self._get_omega(electron)
@@ -192,15 +196,15 @@ class BathtubTrap(Trap):
 
         return z
 
-    def _get_omega(self, electron: Electron):
+    def _get_omega(self, electron):
 
         return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
 
-    def _get_z_max(self, electron: Electron):
+    def _get_z_max(self, electron):
 
         return get_z_max_harmonic(self._L0, electron.pitch)
 
-    def get_f(self, electron: Electron):
+    def get_f(self, electron):
         return 1/self._period(electron)
 
 
@@ -209,7 +213,7 @@ class ArbitraryTrap(Trap):
     def __init__(self):
         pass
 
-    def trajectory(self, electron: Electron):
+    def trajectory(self, electron):
         pass
 
     def B_field(self, z):
