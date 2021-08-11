@@ -13,8 +13,10 @@ from abc import ABC, abstractmethod
 
 from scipy.signal import sawtooth
 import numpy as np
+import uproot4
 
 from .physicsconstants import speed_of_light, E0_electron
+from .utility import get_pos
 
 def get_relativistic_velocity(E_kin):
 
@@ -114,3 +116,31 @@ def simulate_electron(electron, sampler, trap):
     B_vals = trap.B_field(coords[:,2])
 
     return ElectronSim(coords, t, B_vals)
+
+def read_kass_sim(name):
+
+    file_input = uproot4.open(name)
+
+    tree = file_input['component_step_world_DATA']
+    branches = tree.arrays()
+
+    def data(key):
+        return np.array(branches[key][:])
+
+    t = data(b'time')
+
+    x = data(b'position_x')
+    y = data(b'position_y')
+    z = data(b'position_z')
+
+    B_x = data(b'magnetic_field_x')
+    B_y = data(b'magnetic_field_y')
+    B_z = data(b'magnetic_field_z')
+
+    B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
+
+    coords = get_pos(x, y, z)
+
+    return ElectronSim(coords, t, B_vals)
+
+
