@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 
 from scipy.signal import sawtooth
 import numpy as np
-import uproot4
+import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
@@ -119,7 +119,7 @@ def simulate_electron(electron, sampler, trap):
 
 def read_kass_sim(name):
 
-    file_input = uproot4.open(name)
+    file_input = uproot.open(name)
 
     tree = file_input['component_step_world_DATA']
     branches = tree.arrays()
