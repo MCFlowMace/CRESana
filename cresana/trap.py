@@ -144,18 +144,21 @@ class BathtubTrap(Trap):
 
     def B_field(self, z):
 
-        B = flat_potential(z, self._B0)
+        # in case float input is used
+        z_np = np.expand_dims(z, 0)
 
-        left_harmonic = z < -self._L/2
-        right_harmonic = z > self._L/2
+        B = flat_potential(z_np, self._B0)
 
-        z_left_harmonic = z[left_harmonic] + self._L/2
-        z_right_harmonic = z[right_harmonic] - self._L/2
+        left_harmonic = z_np < -self._L/2
+        right_harmonic = z_np > self._L/2
+
+        z_left_harmonic = z_np[left_harmonic] + self._L/2
+        z_right_harmonic = z_np[right_harmonic] - self._L/2
 
         B[left_harmonic] = harmonic_potential(z_left_harmonic, self._B0, self._L0)
         B[right_harmonic] = harmonic_potential(z_right_harmonic, self._B0, self._L0)
 
-        return B
+        return B[0] #undo the expand_dims in first line
 
     def _period(self, electron):
 
