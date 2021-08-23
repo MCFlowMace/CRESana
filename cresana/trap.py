@@ -12,10 +12,16 @@ __all__ = []
 from abc import ABC, abstractmethod
 
 from scipy.signal import sawtooth
+from scipy.optimize import root_scalar
+from scipy.integrate import cumtrapz
+from scipy.interpolate import CubicSpline
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
+
+def magnetic_moment(E_kin, pitch, B0):
+    return E_kin * np.sin(pitch)**2/B0
 
 class Trap(ABC):
 
@@ -210,11 +216,62 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self):
-        pass
+    def __init__(self, f, B0):
+
+        self._profile = f
+        self._B0 = B0
 
     def trajectory(self, electron):
-        pass
+
+        _, _, z_f = self._solve_trajectory(electron)
+
+        return lambda t: get_pos(   np.zeros(t.shape),
+                            np.zeros(t.shape),
+                            z_f(t))
 
     def B_field(self, z):
-        pass
+        return self._profile(z)
+
+    def get_f(self, electron):
+
+        t, _, _ = self._solve_trajectory(electron)
+        t_max = t[-1] - t[1]
+
+        return 1/(2*t_max)
+
+    def _solve_trajectory(self, electron):
+
+        z_root_guess = 1
+        E_kin = electron.E_kin
+        mu = magnetic_moment(E_kin, electron.pitch, self._B0)
+
+        def potential_difference(z):
+            return E_kin - mu*self.B_field(z)
+
+        left = root_scalar(potential_difference, method='secant', x0=-z_root_guess, x1=0.0)
+        right = root_scalar(potential_difference, method='secant', x0=z_root_guess, x1=0.0)
+
+        z = np.linspace(left.root+5e-14, right.root-5e-14, 100000)
+        dz = z[1] - z[0]
+
+        integrand = 1/np.sqrt(potential_difference(z))
+
+        integral = cumtrapz(integrand, x=z, initial=0.0)
+
+        t = integral * np.sqrt(E0_electron/2)/speed_of_light
+
+        t_mod = t[1:-1] - t[1]
+
+        interpolation = CubicSpline(t_mod, z[1:-1], bc_type='clamped')
+
+        def z_f(t_in):
+
+            t_out = t_in.copy()
+
+            t_out += t_mod[-1]/2
+            t_out %= 2*t_mod[-1]
+            t_out[t_out>t_mod[-1]] = 2*t_mod[-1] - t_out[t_out>t_mod[-1]]
+
+            return interpolation(t_out)
+
+        return t, z, z_f
