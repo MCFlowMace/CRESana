@@ -51,6 +51,7 @@ def get_disc_solid_angle_general(d, R, r):
     r - radial position of the source
     """
 
+    # reference: https://aip.scitation.org/doi/pdf/10.1063/1.1716590
 
     def K(k):
         return special.ellipk(k**2)
