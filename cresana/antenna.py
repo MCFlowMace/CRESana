@@ -13,9 +13,84 @@ from abc import ABC, abstractmethod
 from scipy.interpolate import RectBivariateSpline
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import special
 
 def fake_AM(x, sigma, A_0):
     return A_0 * np.exp(-0.5*(x/sigma)**2)
+
+def get_disc_solid_angle(d, R, r):
+
+    """
+    d - distance between source and disc
+    R - radius of the disc
+    r - radial position of the source
+    """
+
+    if r/R>0.45:
+        return get_disc_solid_angle_general(d, R, r)
+    else:
+        # maximum error ~10%
+        return get_disc_solid_angle_on_axis(d, R)
+
+def get_disc_solid_angle_on_axis(d, R):
+
+    """
+    d - distance between source and disc
+    R - radius of the disc
+    """
+    r_b = np.sqrt(d**2 + R**2)
+    h = r_b - d
+
+    return np.pi*2*h/r_b
+
+def get_disc_solid_angle_general(d, R, r):
+
+    """
+    d - distance between source and disc
+    R - radius of the disc
+    r - radial position of the source
+    """
+
+
+    def K(k):
+        return special.ellipk(k**2)
+
+    def AlphaSqr(r_0,r_m):
+        return 4*np.abs(r_0)*np.abs(r_m)/(np.abs(r_0)+np.abs(r_m))**2
+
+    def R1(L,r_0,r_m):
+        return np.sqrt(L**2+(np.abs(r_m)-np.abs(r_0))**2)
+
+    def RMax(L,r_0,r_m):
+        return np.sqrt(L**2+(np.abs(r_m)+np.abs(r_0))**2)
+
+    def fk(L,r_0,r_m):
+        R_1=R1(L,r_0,r_m)
+        R_Max=RMax(L,r_0,r_m)
+        return np.sqrt(1-(R_1/R_Max)**2)
+
+    def Xi(L,r_0,r_m):
+        return np.arctan2(L,np.abs(r_0-r_m))
+
+    def KM1(k):
+        return special.ellipkm1(k**2)
+
+    #logic from here https://math.stackexchange.com/q/629326
+    def heuman_lambda(xi,k):
+        k_bar=np.sqrt(1-k**2)
+        E_k= special.ellipe(k**2)
+        F_xik= special.ellipkinc(xi,k_bar**2)
+        K_k=K(k)
+        E_xik=special.ellipeinc(xi, k_bar**2)
+        return 2*(E_k*F_xik+K_k*E_xik-K_k*F_xik)/np.pi
+
+    R_max=RMax(d, r, R)
+    R_1=R1(d, r, R)
+    k=fk(d, r, R)
+    alpha_sqr=AlphaSqr(r, R)
+    xi=Xi(d, r, R)
+
+    return 2*np.pi-(2*d/R_max)*K(k)-np.pi*heuman_lambda(xi, k)
 
 class AntennaGainPattern():
 
