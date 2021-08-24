@@ -99,7 +99,7 @@ def get_disc_solid_angle_general(d, r, R):
 
     return 2*np.pi-(2*d/R_max)*K(k)-np.pi*heuman_lambda(xi, k)
 
-class FileGainPattern():
+class FileGainPattern:
 
     """
     Author: R. Reimann
@@ -165,25 +165,26 @@ class FileGainPattern():
         ax.set_xlim(-0.03,0.03)
         ax.set_ylim(0, 0.231)
         ax.set_xlabel("z [m]")
-        ax.set_ylabel("x [m]")
+        ax.set_ylabel("r [m]")
 
 
-class SolidAngleGainPattern():
+class SolidAngleGainPattern:
 
-    def __init__(self, d_max=10, n_r=100, n_d=1000):
+    def __init__(self, R, d_max=10, n_r=100, n_d=1000):
         self.generate_gain_map(d_max, n_r, n_d)
         self.generate_spline()
+        self.R = R
 
     def generate_gain_map(self, d_max, n_r, n_d):
-        self.r_pos = np.linspace(0.0, d_max, n_d)
-        self.z_pos = np.linspace(0.0, 1.0, n_r, endpoint=False)
-        self.gains = get_disc_solid_angle_general(np.expand_dims(self.r_pos,1), 1.0, self.z_pos)/(4*np.pi)
+        self.z_pos = np.linspace(0.0, d_max, n_d)
+        self.r_pos = np.linspace(0.0, 1.0, n_r, endpoint=False)
+        self.gains = get_disc_solid_angle_general(self.z_pos, 1.0, np.expand_dims(self.r_pos,1))/(4*np.pi)
 
     def generate_spline(self):
         self.spline = RectBivariateSpline(self.r_pos, self.z_pos, self.gains)
 
     def __call__(self, r, z, grid=False):
-        return self.spline(r, z, grid=grid)
+        return self.spline(r/self.R, np.abs(z)/self.R, grid=grid)
 
     def plot(self, **kwargs):
         fig, ax = plt.subplots()
@@ -198,6 +199,20 @@ class SolidAngleGainPattern():
         cb.set_label("relative gain")
         #ax.set_xlim(-0.03,0.03)
         ax.set_ylim(0, 1)
-        ax.set_xlabel("r/R")
-        ax.set_ylabel("d/R")
+        ax.set_xlabel("z/R")
+        ax.set_ylabel("r/R")
 
+
+class AntennaArray:
+
+    def __init__(self, positions, gain_f):
+        self.positions = positions
+        self.gain_f = gain_f
+
+    def get_distance(self, pos):
+        return pos - np.expand_dims(self.positions, 1)
+
+    def get_amplitude(self, dist):
+        r = np.sqrt(dist[:,:,0]**2 + dist[:,:,1]**2)
+        z = dist[:,:,2]
+        return self.gain_f(r, z)
