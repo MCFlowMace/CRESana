@@ -168,7 +168,7 @@ class FileGainPattern:
         ax.set_ylabel("r [m]")
 
 
-class SolidAngleGainPattern:
+class DiscSolidAngleGainPattern:
 
     def __init__(self, R, d_max=10, n_r=100, n_d=1000):
         self.generate_gain_map(d_max, n_r, n_d)
