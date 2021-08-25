@@ -10,6 +10,9 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
+from .physicsconstants import speed_of_light
+from .cyclotronmotion import get_w_cyclotron, get_slope, get_radiated_power
+from scipy.integrate import cumtrapz
 
 class Sampler:
 
@@ -56,3 +59,67 @@ class Sampler:
     def sr(self, val):
         self._sr = val
         self._dt = 1/val
+
+def get_signal(A, phase):
+
+    return A*np.exp(1.0j*phase)
+
+def get_cyclotron_phase(t, w_avg, w_m):
+
+    return t*(w_avg - w_m)
+
+def get_energy_loss_phase(t, slope):
+
+    return 0.5*slope*t**2
+
+def get_phase_shift(d, w):
+
+    return w*d/speed_of_light
+
+# ~ def get_distance(pos_e, pos_antenna):
+
+    # ~ return np.sqrt(np.sum((pos_e-pos_antenna)**2, axis=1))
+    
+def get_cyclotron_phase_int(w, dt):
+
+    return cumtrapz(w, dx=dt, initial=0.0) 
+    
+def find_nearest_samples(t1, t2):
+    
+    ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
+    last = np.searchsorted(ind, t2.shape[0]-1)
+    
+    return t2[ind[:last]], ind[:last]
+
+
+class Signal:
+
+    def __init__(self, antenna_array, sr, w_mix):
+
+        self.sampler = Sampler(sr)
+        self.antenna_array = antenna_array
+        self.w_mix = w_mix
+
+    def get_samples(self, N, electron_sim):
+        
+        t, sample_ind = find_nearest_sample_times(self.sampler(N), electron_sim.t)
+        B_sample = electron_sim.B_vals[sample_ind]
+        coords = electron_sim.coords[sample_ind]
+        
+        w = get_w_cyclotron(B_sample, electron_sim.E_kin)
+
+        #power = get_radiated_power(electron_sim.E_kin, theta, B_sample, w)
+        #slope = get_slope(electron_sim.E_kin, power, w)
+
+        dist = self.antenna_array.get_distance(coords)
+
+        phase = get_phase_shift(d, w)
+        #phase += get_cyclotron_phase(self._sampler(N), w_0, self._w_mix)
+        
+        phase += get_cyclotron_phase_int(w, dt)
+
+        if self._energy_loss:
+            phase += get_energy_loss_phase(self._sampler(N), slope)
+
+
+        return get_signal(A, phase)
