@@ -130,8 +130,8 @@ class FileGainPattern:
                     print("Warning")
                 radius = np.concatenate([radius, np.array(sorted(set(r)))])
                 power = np.concatenate([power, p.reshape((len(set(z)), len(set(r))))], axis=-1)
-        self.z_pos = z_pos
-        self.r_pos = radius
+        self.r_pos = z_pos
+        self.d_pos = radius
         self.power = power#/np.max(power)
 
     def clean_spikes(self):
@@ -146,26 +146,26 @@ class FileGainPattern:
                     self.power[i,j] = np.mean(mean)
 
     def generate_spline(self):
-        self.spline = RectBivariateSpline(self.r_pos, self.z_pos, np.transpose(self.power))
+        self.spline = RectBivariateSpline(self.r_pos, self.d_pos, self.power)
 
-    def __call__(self, r, z, grid=False):
-        return self.spline(r, z, grid=grid)
+    def __call__(self, r, d, grid=False):
+        return self.spline(r, d, grid=grid)
 
     def plot(self, **kwargs):
         fig, ax = plt.subplots(figsize=(3*2,6*2))
 
-        extent = [np.min(self.z_pos), np.max(self.z_pos), np.min(self.r_pos), np.max(self.r_pos)]
+        extent = [np.min(self.r_pos), np.max(self.r_pos), np.min(self.d_pos), np.max(self.d_pos)]
 
-        power_map = self.spline(self.r_pos, self.z_pos, grid=True)
+        power_map = self.spline(self.r_pos, self.d_pos, grid=True)
         print(power_map.shape)
-        im = ax.imshow(power_map, extent=extent, origin="lower", **kwargs)
+        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", **kwargs)
         ax.set_aspect("equal")
         cb = plt.colorbar(im, ax=ax)
         cb.set_label("Detected Power [W]")
         ax.set_xlim(-0.03,0.03)
         ax.set_ylim(0, 0.231)
         ax.set_xlabel("z [m]")
-        ax.set_ylabel("r [m]")
+        ax.set_ylabel("d [m]")
 
 
 class DiscSolidAngleGainPattern:
@@ -176,36 +176,40 @@ class DiscSolidAngleGainPattern:
         self.R = R
 
     def generate_gain_map(self, d_max, n_r, n_d):
-        self.z_pos = np.linspace(0.0, d_max, n_d)
+        self.d_pos = np.linspace(0.0, d_max, n_d)
         self.r_pos = np.linspace(0.0, 1.0, n_r, endpoint=False)
-        self.gains = get_disc_solid_angle_general(self.z_pos, 1.0, np.expand_dims(self.r_pos,1))/(4*np.pi)
+        self.gains = get_disc_solid_angle_general(np.expand_dims(self.d_pos,1), self.r_pos, 1.0)/(4*np.pi)
+        print(self.gains.shape)
 
     def generate_spline(self):
-        self.spline = RectBivariateSpline(self.r_pos, self.z_pos, self.gains)
+        self.spline = RectBivariateSpline(self.d_pos, self.r_pos, self.gains)
 
-    def __call__(self, r, z, grid=False):
-        return self.spline(r/self.R, np.abs(z)/self.R, grid=grid)
+    def __call__(self, d, r, grid=False):
+        return self.spline(np.abs(d)/self.R, r/self.R, grid=grid)
 
     def plot(self, **kwargs):
         fig, ax = plt.subplots()
 
-        extent = [np.min(self.z_pos), np.max(self.z_pos), np.min(self.r_pos), np.max(self.r_pos)]
+        extent = [np.min(self.d_pos), np.max(self.d_pos), np.min(self.r_pos), np.max(self.r_pos)]
 
-        power_map = self.spline(self.r_pos, self.z_pos)
+        power_map = self.spline(self.d_pos, self.r_pos)
 
-        im = ax.imshow(power_map, extent=extent, origin="lower", **kwargs)
+        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", **kwargs)
         ax.set_aspect("equal")
         cb = plt.colorbar(im, ax=ax)
         cb.set_label("relative gain")
         #ax.set_xlim(-0.03,0.03)
-        ax.set_ylim(0, 1)
-        ax.set_xlabel("z/R")
+        ax.set_xlim(0, 2.5)
+        ax.set_xlabel("d/R")
         ax.set_ylabel("r/R")
 
 
 class AntennaArray:
 
     def __init__(self, positions, gain_f):
+        
+        #attention !!! orientation of antenna is NOT included
+        
         self.positions = positions
         self.gain_f = gain_f
 
@@ -215,4 +219,4 @@ class AntennaArray:
     def get_amplitude(self, dist):
         r = np.sqrt(dist[:,:,0]**2 + dist[:,:,1]**2)
         z = dist[:,:,2]
-        return self.gain_f(r, z)
+        return self.gain_f(z, r)
