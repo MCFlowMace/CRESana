@@ -207,9 +207,9 @@ class DiscSolidAngleGainPattern:
 class AntennaArray:
 
     def __init__(self, positions, gain_f):
-        
+
         #attention !!! orientation of antenna is NOT included
-        
+
         self.positions = positions
         self.gain_f = gain_f
 
@@ -220,3 +220,22 @@ class AntennaArray:
         r = np.sqrt(dist[:,:,0]**2 + dist[:,:,1]**2)
         z = dist[:,:,2]
         return self.gain_f(z, r)
+
+    @classmethod
+    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
+
+        z = np.linspace(z_min, z_max, n_rings)
+
+        angles = np.linspace(0, 1, n_antenna, endpoint=False)*2*np.pi
+        x = np.cos(angles)*R
+        y = np.sin(angles)*R
+
+        xx, zz = np.meshgrid(x, z)
+        yy, _ = np.meshgrid(y, z)
+
+        positions = np.column_stack((xx.flatten(), yy.flatten(), zz.flatten()))
+
+        instance = cls(positions, gain_f)
+
+        return instance
+
