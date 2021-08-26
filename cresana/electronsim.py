@@ -148,7 +148,7 @@ def read_kass_sim(name):
     py = data(b'momentum_y')
     pz = data(b'momentum_z')
 
-    E_kin = data(b'E_kin')
+    E_kin = data(b'kinetic_energy')
 
     B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
     p = np.sqrt(px**2 + py**2 + pz**2)
