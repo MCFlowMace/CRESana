@@ -12,6 +12,7 @@ __all__ = []
 import numpy as np
 from .physicsconstants import speed_of_light
 from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power
+from .electronsim import simulate_electron
 from scipy.integrate import cumtrapz
 
 class Sampler:
@@ -92,7 +93,7 @@ def find_nearest_samples(t1, t2):
     return t2[ind[:last]], ind[:last]
 
 
-class Signal:
+class SignalModel:
 
     def __init__(self, antenna_array, sr, w_mix):
 
@@ -106,7 +107,7 @@ class Signal:
         B_sample = electron_sim.B_vals[sample_ind]
         coords = electron_sim.coords[sample_ind]
         theta = electron_sim.theta[sample_ind]
-        E_kin = electron.E_kin
+        E_kin = electron_sim.E_kin
 
         w = get_omega_cyclotron(B_sample, E_kin)
 
@@ -128,6 +129,8 @@ class Signal:
 
         return get_signal(A, phase)
 
-    #~ def get_samples_from_electron(self, N, electron, trap):
+    def get_samples_from_electron(self, N, electron, trap):
 
-        #~ electron_sim = simulate_electron(electron, sampler, trap)
+        electron_sim = simulate_electron(electron, self.sampler, trap, N)
+
+        return self.get_samples(N, electron_sim)
