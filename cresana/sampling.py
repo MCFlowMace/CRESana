@@ -105,11 +105,13 @@ class Signal:
         t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t)
         B_sample = electron_sim.B_vals[sample_ind]
         coords = electron_sim.coords[sample_ind]
+        theta = electron_sim.theta[sample_ind]
+        E_kin = electron.E_kin
 
-        w = get_omega_cyclotron(B_sample, electron_sim.E_kin)
+        w = get_omega_cyclotron(B_sample, E_kin)
 
-        #power = get_radiated_power(electron_sim.E_kin, theta, B_sample, w)
-        #slope = get_slope(electron_sim.E_kin, power, w)
+        power = get_radiated_power(E_kin, theta, B_sample, w)
+        slope = get_slope(E_kin, power, w)
 
         dist = self.antenna_array.get_distance(coords)
 
@@ -117,14 +119,12 @@ class Signal:
         d = np.sqrt(np.sum(dist**2, axis=-1))
 
         phase = get_phase_shift(d, w)
-        #phase += get_cyclotron_phase(self._sampler(N), w_0, self._w_mix)
 
         dt = t[1]-t[0]
         phase += get_cyclotron_phase_int(w, dt)
+        phase += get_energy_loss_phase(t, slope)
 
-        #~ if self._energy_loss:
-            #~ phase += get_energy_loss_phase(self._sampler(N), slope)
-
+        #if self._energy_loss:
 
         return get_signal(A, phase)
 
