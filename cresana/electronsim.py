@@ -102,21 +102,27 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin):
+    def __init__(self, coords, t, B_vals, E_kin, theta):
 
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
+        self.theta = theta
 
+def differentiate(y, dx):
+
+    return (y[2:] - y[:-2])/(2*dx) # = d/dx y[1:-1]
 
 def simulate_electron(electron, sampler, trap):
 
     t = sampler()
     coords = trap.trajectory(electron)(t)
     B_vals = trap.B_field(coords[:,2])
+    vz = differentiate(coords[:,2], sampler.dt)
+    pitch = np.arccos(vz/electron.v0)
 
-    return ElectronSim(coords, t, B_vals, electron.E_kin)
+    return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, pitch)
 
 def read_kass_sim(name):
 
@@ -137,13 +143,19 @@ def read_kass_sim(name):
     B_x = data(b'magnetic_field_x')
     B_y = data(b'magnetic_field_y')
     B_z = data(b'magnetic_field_z')
-    
+
+    px = data(b'momentum_x')
+    py = data(b'momentum_y')
+    pz = data(b'momentum_z')
+
     E_kin = data(b'E_kin')
 
     B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
+    p = np.sqrt(px**2 + py**2 + pz**2)
+    pitch = np.arccos(pz/p)
 
     coords = get_pos(x, y, z)
 
-    return ElectronSim(coords, t, B_vals, E_kin)
+    return ElectronSim(coords, t, B_vals, E_kin, pitch)
 
 
