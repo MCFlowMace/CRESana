@@ -156,6 +156,6 @@ def read_kass_sim(name):
 
     coords = get_pos(x, y, z)
 
-    return ElectronSim(coords, t, B_vals, E_kin, pitch)
+    return ElectronSim(coords, t, B_vals, E_kin[0], pitch)
 
 
