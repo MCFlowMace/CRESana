@@ -95,11 +95,13 @@ def find_nearest_samples(t1, t2):
 
 class SignalModel:
 
-    def __init__(self, antenna_array, sr, w_mix):
+    def __init__(self, antenna_array, sr, w_mix, AM=True, slope=True):
 
         self.sampler = Sampler(sr)
         self.antenna_array = antenna_array
         self.w_mix = w_mix
+        self.AM = AM
+        self.slope = slope
 
     def get_samples(self, N, electron_sim):
 
@@ -123,9 +125,9 @@ class SignalModel:
 
         dt = t[1]-t[0]
         phase += get_cyclotron_phase_int(w, dt)
-        phase += get_energy_loss_phase(t, slope)
 
-        #if self._energy_loss:
+        if self.slope:
+            phase += get_energy_loss_phase(t, slope)
 
         return get_signal(A, phase)
 
