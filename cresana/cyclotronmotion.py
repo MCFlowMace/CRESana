@@ -45,15 +45,24 @@ def get_avg_omega_cyclotron(B, E_kin, z_max, L_0):
     # ~ w_0 = get_avg_omega_cyclotron(B, E_kin, z_max, L_0)
 
     # ~ return p*w_0/(E0_electron + E_kin)
-    
-def get_radiated_power(E_kin, theta, B, w):
+
+#~ def get_radiated_power(E_kin, theta, B, w):
+
+    #~ v_0 = get_relativistic_velocity(E_kin)
+    #~ beta = v_0/speed_of_light
+
+    #~ scaling_factor = beta**2*np.sin(theta)**2/(1-beta**2)
+
+    #~ return w**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
+
+def get_radiated_power(E_kin, theta, B):
 
     v_0 = get_relativistic_velocity(E_kin)
     beta = v_0/speed_of_light
-
+    w0 = get_omega_cyclotron(B, 0.0)
     scaling_factor = beta**2*np.sin(theta)**2/(1-beta**2)
 
-    return w**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
+    return w0**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
 
 def get_slope(E_kin, p, w):
 
