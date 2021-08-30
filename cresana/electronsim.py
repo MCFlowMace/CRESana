@@ -117,6 +117,7 @@ def differentiate(y, dx):
 def simulate_electron(electron, sampler, trap, N):
 
     t = sampler(N+2)
+    t = t-t[1]
     coords = trap.trajectory(electron)(t)
     B_vals = trap.B_field(coords[:,2])
     vz = differentiate(coords[:,2], sampler.dt)
