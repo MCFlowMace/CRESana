@@ -10,10 +10,12 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
-from .physicsconstants import speed_of_light
+from .physicsconstants import speed_of_light, ev
 from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power
 from .electronsim import simulate_electron
 from scipy.integrate import cumtrapz
+
+import matplotlib.pyplot as plt
 
 class Sampler:
 
@@ -92,6 +94,10 @@ def find_nearest_samples(t1, t2):
 
     return t2[ind[:last]], ind[:last]
 
+def power_to_voltage(P):
+
+    resistance = 50 #ohm
+    return np.sqrt(P*resistance)
 
 class SignalModel:
 
@@ -113,18 +119,26 @@ class SignalModel:
 
         w = get_omega_cyclotron(B_sample, E_kin)
 
-        power = get_radiated_power(E_kin, theta, B_sample, w)
+        power = get_radiated_power(E_kin, theta, B_sample)
         slope = get_slope(E_kin, power, w)
 
         dist = self.antenna_array.get_distance(coords)
 
-        A = self.antenna_array.get_amplitude(dist)
+        gain = self.antenna_array.get_amplitude(dist)
+
+        detected_power = gain*power
+
+        A = power_to_voltage(detected_power*ev)
+
         d = np.sqrt(np.sum(dist**2, axis=-1))
 
         phase = get_phase_shift(d, w)
 
         dt = t[1]-t[0]
-        phase += get_cyclotron_phase_int(w, dt)
+
+        cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, dt)
+
+        phase += cyclotron_phase
 
         if self.slope:
             phase += get_energy_loss_phase(t, slope)
