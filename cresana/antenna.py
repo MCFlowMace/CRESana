@@ -15,6 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import special
 
+from .cyclotronmotion import get_radiated_power
+from .physicsconstants import ev
+
 def fake_AM(x, sigma, A_0):
     return A_0 * np.exp(-0.5*(x/sigma)**2)
 
@@ -105,7 +108,9 @@ class FileGainPattern:
     Author: R. Reimann
     """
 
-    def __init__(self, data_paths):
+    def __init__(self, data_paths, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
+        #P0 is the radiated power of the electron which was used for the gain pattern
+        self.P0 = get_radiated_power(E_kin, theta, B_0)
         self.load_power_map(data_paths)
         self.clean_spikes()
         self.generate_spline()
@@ -132,7 +137,7 @@ class FileGainPattern:
                 power = np.concatenate([power, p.reshape((len(set(z)), len(set(r))))], axis=-1)
         self.r_pos = z_pos
         self.d_pos = radius
-        self.power = power#/np.max(power)
+        self.power = power/(self.P0*ev)
 
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):
@@ -161,7 +166,7 @@ class FileGainPattern:
         im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", **kwargs)
         ax.set_aspect("equal")
         cb = plt.colorbar(im, ax=ax)
-        cb.set_label("Detected Power [W]")
+        cb.set_label("Detected power/Radiated power")
         ax.set_xlim(-0.03,0.03)
         ax.set_ylim(0, 0.231)
         ax.set_xlabel("z [m]")
