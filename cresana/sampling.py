@@ -83,9 +83,9 @@ def get_phase_shift(d, w):
 
     # ~ return np.sqrt(np.sum((pos_e-pos_antenna)**2, axis=1))
 
-def get_cyclotron_phase_int(w, dt):
+def get_cyclotron_phase_int(w, t):
 
-    return cumtrapz(w, dx=dt, initial=0.0)
+    return cumtrapz(w, x=t, initial=0.0)
 
 def find_nearest_samples(t1, t2):
 
@@ -111,7 +111,7 @@ class SignalModel:
 
     def get_samples(self, N, electron_sim):
 
-        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t)
+        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t-electron_sim.t[0])
         B_sample = electron_sim.B_vals[sample_ind]
         coords = electron_sim.coords[sample_ind]
         theta = electron_sim.theta[sample_ind]
@@ -134,9 +134,7 @@ class SignalModel:
 
         phase = get_phase_shift(d, w)
 
-        dt = t[1]-t[0]
-
-        cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, dt)
+        cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, t)
 
         phase += cyclotron_phase
 
