@@ -137,9 +137,9 @@ def read_kass_sim(name):
 
     t = data(b'time')
 
-    x = data(b'position_x')
-    y = data(b'position_y')
-    z = data(b'position_z')
+    x = data(b'guiding_center_position_x')
+    y = data(b'guiding_center_position_y')
+    z = data(b'guiding_center_position_z')
 
     B_x = data(b'magnetic_field_x')
     B_y = data(b'magnetic_field_y')
