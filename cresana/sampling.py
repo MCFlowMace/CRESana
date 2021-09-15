@@ -11,7 +11,7 @@ __all__ = []
 
 import numpy as np
 from .physicsconstants import speed_of_light, ev
-from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power
+from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power, get_omega_cyclotron_time_dependent
 from .electronsim import simulate_electron
 from scipy.integrate import cumtrapz
 
@@ -101,45 +101,70 @@ def power_to_voltage(P):
 
 class SignalModel:
 
-    def __init__(self, antenna_array, sr, w_mix, AM=True, slope=True):
+    def __init__(self, antenna_array, sr, w_mix, AM=True, slope=True, frequency_weight=lambda w: 1.0):
 
         self.sampler = Sampler(sr)
         self.antenna_array = antenna_array
         self.w_mix = w_mix
         self.AM = AM
         self.slope = slope
+        self.frequency_weight = frequency_weight
 
     def get_samples(self, N, electron_sim):
 
-        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t-electron_sim.t[0])
-        B_sample = electron_sim.B_vals[sample_ind]
+        #t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t-electron_sim.t[0])
+        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t)
+       # B_sample = electron_sim.B_vals[sample_ind]
         coords = electron_sim.coords[sample_ind]
-        theta = electron_sim.theta[sample_ind]
+       # theta = electron_sim.theta[sample_ind]
         E_kin = electron_sim.E_kin
-
-        w = get_omega_cyclotron(B_sample, E_kin)
-
-        power = get_radiated_power(E_kin, theta, B_sample)
-        slope = get_slope(E_kin, power, w)
 
         dist = self.antenna_array.get_distance(coords)
 
+        d = np.sqrt(np.sum(dist**2, axis=-1))
+        t_travel = d/speed_of_light
+
+        t_ret = t - t_travel
+
+        print('t_travel:', t_travel)
+        print('t:', t)
+        print('t_ret:', t_ret)
+        print('sampler:', self.sampler(t.shape[0]))
+
+        #1 is first causal index at our sampling rates and distances
+        t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
+
+        B_sample = electron_sim.B_vals[sample_ind_correct]
+        theta = electron_sim.theta[sample_ind_correct]
+
+        A = np.zeros(d.shape)
+        phase = np.zeros(d.shape)
+
+        power = get_radiated_power(E_kin, theta, B_sample)
+        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
+
+        #slope = get_slope(E_kin, power, w)
+
+        #print(dist.shape)
+
         gain = self.antenna_array.get_amplitude(dist)
 
-        detected_power = gain*power
+        detected_power = gain[:,1:]*power
 
-        A = power_to_voltage(detected_power*ev)
+        A[:,1:] = power_to_voltage(detected_power*ev)
 
-        d = np.sqrt(np.sum(dist**2, axis=-1))
+        #phase = get_phase_shift(d, w)
 
-        phase = get_phase_shift(d, w)
+        #cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, t)
 
-        cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, t)
+        #phase += cyclotron_phase
 
-        phase += cyclotron_phase
+        phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
 
-        if self.slope:
-            phase += get_energy_loss_phase(t, slope)
+        phase -= self.w_mix*t#self.sampler(t.shape[0])
+
+       # if self.slope:
+       #     phase += get_energy_loss_phase(t-t_travel, slope)
 
         return get_signal(A, phase)
 
