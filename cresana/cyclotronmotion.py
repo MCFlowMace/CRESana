@@ -22,6 +22,12 @@ def get_omega_cyclotron(B, E_kin):
 
     return speed_of_light*speed_of_light*B/(E0_electron + E_kin)
 
+def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
+
+    w = get_omega_cyclotron(B, E_kin)
+
+    return w*(1+p*t/(E0_electron + E_kin))
+
 def get_avg_omega_cyclotron(B, E_kin, z_max, L_0):
 
     w0 = get_omega_cyclotron(B, E_kin)
