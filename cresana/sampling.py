@@ -126,11 +126,6 @@ class SignalModel:
 
         t_ret = t - t_travel
 
-        print('t_travel:', t_travel)
-        print('t:', t)
-        print('t_ret:', t_ret)
-        print('sampler:', self.sampler(t.shape[0]))
-
         #1 is first causal index at our sampling rates and distances
         t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
 
@@ -143,9 +138,6 @@ class SignalModel:
         power = get_radiated_power(E_kin, theta, B_sample)
         w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
 
-        #slope = get_slope(E_kin, power, w)
-
-        #print(dist.shape)
 
         gain = self.antenna_array.get_amplitude(dist)
 
@@ -161,10 +153,8 @@ class SignalModel:
 
         phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
 
-        phase -= self.w_mix*t#self.sampler(t.shape[0])
+        phase -= self.w_mix*t
 
-       # if self.slope:
-       #     phase += get_energy_loss_phase(t-t_travel, slope)
 
         return get_signal(A, phase)
 
