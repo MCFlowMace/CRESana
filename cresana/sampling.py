@@ -90,7 +90,7 @@ def get_cyclotron_phase_int(w, t):
 def find_nearest_samples(t1, t2):
 
     ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
-    last = np.searchsorted(ind, t2.shape[0]-1)
+    last = np.searchsorted(ind, t2.shape[0]-1) + 1
 
     return t2[ind[:last]], ind[:last]
 
