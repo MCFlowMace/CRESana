@@ -93,6 +93,13 @@ def find_nearest_samples(t1, t2):
     last = np.searchsorted(ind, t2.shape[0]-1) + 1
 
     return t2[ind[:last]], ind[:last]
+    
+def find_nearest_samples_causal(t1, t2):
+
+    ind = np.searchsorted(t2, t1)
+    last = np.searchsorted(ind, t2.shape[0]-1) +1
+
+    return t2[ind[:last]], ind[:last]
 
 def power_to_voltage(P):
 
@@ -111,20 +118,21 @@ class SignalModel:
         self.frequency_weight = frequency_weight
 
     def get_samples(self, N, electron_sim):
-
-        #t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t-electron_sim.t[0])
-        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t)
-       # B_sample = electron_sim.B_vals[sample_ind]
-        coords = electron_sim.coords[sample_ind]
-       # theta = electron_sim.theta[sample_ind]
-        E_kin = electron_sim.E_kin
-
-        dist = self.antenna_array.get_distance(coords)
+        
+        t = self.sampler(N)
+        
+        dist = self.antenna_array.get_distance(electron_sim.coords)
 
         d = np.sqrt(np.sum(dist**2, axis=-1))
         t_travel = d/speed_of_light
+        
+        t_antenna = electron_sim.t + t_travel
+        
+        _, traj_ind = find_nearest_samples(t_antenna, t)
+        sample_ind = np.searchsorted(traj_ind, np.arange(t.shape[0])
 
-        t_ret = t - t_travel
+        E_kin = electron_sim.E_kin
+
 
         #1 is first causal index at our sampling rates and distances
         t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
