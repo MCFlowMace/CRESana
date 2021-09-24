@@ -128,38 +128,37 @@ class SignalModel:
         
         t_antenna = electron_sim.t + t_travel
         
-        _, traj_ind = find_nearest_samples(t_antenna, t)
-        sample_ind = np.searchsorted(traj_ind, np.arange(t.shape[0])
+        _, traj_ind = find_nearest_samples(t_antenna[0], t)
+        #sample_ind = np.searchsorted(traj_ind, np.arange(t.shape[0]))
+        _, sample_ind = find_nearest_samples_causal(np.arange(t.shape[0]), traj_ind)
+        
+        first_causal_index = np.sum(sample_ind==0) - 1
+        sample_ind = sample_ind[first_causal_index:]
 
         E_kin = electron_sim.E_kin
-
-
-        #1 is first causal index at our sampling rates and distances
-        t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
-
-        B_sample = electron_sim.B_vals[sample_ind_correct]
-        theta = electron_sim.theta[sample_ind_correct]
-
-        A = np.zeros(d.shape)
-        phase = np.zeros(d.shape)
+        coords = electron_sim.coords[sample_ind]
+        B_sample = electron_sim.B_vals[sample_ind]
+        theta = electron_sim.theta[sample_ind]
+        t_retard = electron_sim.t[sample_ind]
+        
+        dist = self.antenna_array.get_distance(coords)
+        
+        print('dist shape', dist.shape)
+        
+        A = np.zeros((d.shape[0], t.shape[0]))
+        phase = np.zeros((d.shape[0], t.shape[0]))
 
         power = get_radiated_power(E_kin, theta, B_sample)
-        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
-
+        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_retard)
 
         gain = self.antenna_array.get_amplitude(dist)
 
-        detected_power = gain[:,1:]*power
+        detected_power = gain*power
 
-        A[:,1:] = power_to_voltage(detected_power*ev)
+        A[:,first_causal_index:] = power_to_voltage(detected_power*ev)
 
-        #phase = get_phase_shift(d, w)
 
-        #cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, t)
-
-        #phase += cyclotron_phase
-
-        phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
+        phase[:,first_causal_index:] = get_cyclotron_phase_int(w, t_retard)
 
         phase -= self.w_mix*t
 
