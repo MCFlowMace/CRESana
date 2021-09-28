@@ -102,13 +102,14 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin, theta):
+    def __init__(self, coords, t, B_vals, E_kin, theta, omega):
 
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
         self.theta = theta
+        self.omega = omega
 
 def differentiate(y, dx):
 
@@ -156,7 +157,9 @@ def read_kass_sim(name):
     pitch = np.arccos(pz/p)
 
     coords = get_pos(x, y, z)
+    
+    omega = data(b'cyclotron_frequency')*2*np.pi
 
-    return ElectronSim(coords, t, B_vals, E_kin[0], pitch)
+    return ElectronSim(coords, t, B_vals, E_kin[0], pitch, omega)
 
 

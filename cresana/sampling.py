@@ -136,8 +136,9 @@ class SignalModel:
         phase = np.zeros(d.shape)
 
         power = get_radiated_power(E_kin, theta, B_sample)
-        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
-
+        #w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
+        
+        w = electron_sim.omega[sample_ind_correct]
 
         gain = self.antenna_array.get_amplitude(dist)
 
