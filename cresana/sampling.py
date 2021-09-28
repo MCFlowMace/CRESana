@@ -119,20 +119,33 @@ class SignalModel:
 
     def get_samples(self, N, electron_sim):
         
+        #Die SCheiße ist voller FEHLER!!!! ÜBERPRÜ*FEN!!!!!
+        
         t = self.sampler(N)
         
         dist = self.antenna_array.get_distance(electron_sim.coords)
 
         d = np.sqrt(np.sum(dist**2, axis=-1))
+        
         t_travel = d/speed_of_light
         
         t_antenna = electron_sim.t + t_travel
+    
+        
+        print('t sampler', t)
+        print('t antenna reached', t_antenna)
         
         _, traj_ind = find_nearest_samples(t_antenna[0], t)
         #sample_ind = np.searchsorted(traj_ind, np.arange(t.shape[0]))
         _, sample_ind = find_nearest_samples_causal(np.arange(t.shape[0]), traj_ind)
         
+        print('traj ind', traj_ind)
+        
+        print('sample ind', sample_ind)
+        
         first_causal_index = np.sum(sample_ind==0) - 1
+        
+        print('first causal', first_causal_index)
         sample_ind = sample_ind[first_causal_index:]
 
         E_kin = electron_sim.E_kin
@@ -141,26 +154,37 @@ class SignalModel:
         theta = electron_sim.theta[sample_ind]
         t_retard = electron_sim.t[sample_ind]
         
+        plt.plot((t_retard[1:]-t_retard[:-1])[1:])
+        plt.plot(t[1:]-t[:-1])
+        plt.show()
+        
         dist = self.antenna_array.get_distance(coords)
         
         print('dist shape', dist.shape)
         
         A = np.zeros((d.shape[0], t.shape[0]))
         phase = np.zeros((d.shape[0], t.shape[0]))
+        
+        t_retard = t - 0.1/speed_of_light
 
         power = get_radiated_power(E_kin, theta, B_sample)
-        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_retard)
+        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_retard[first_causal_index+1:]) #t_retard)
+        
+        plt.plot((w-self.w_mix)/(2*np.pi*1.0e6))
+        plt.show()
 
         gain = self.antenna_array.get_amplitude(dist)
 
         detected_power = gain*power
+        print('gain shape', gain.shape)
 
-        A[:,first_causal_index:] = power_to_voltage(detected_power*ev)
+        A[:,first_causal_index+1:] = power_to_voltage(detected_power*ev)
 
+        phase[:,first_causal_index+1:] = get_cyclotron_phase_int(w, t_retard[first_causal_index+1:])
+        
+        #phase[:,first_causal_index+1:] += w*t[first_causal_index+1:]
 
-        phase[:,first_causal_index:] = get_cyclotron_phase_int(w, t_retard)
-
-        phase -= self.w_mix*t
+        phase[:,first_causal_index+1:] -= self.w_mix*t[first_causal_index+1:]
 
 
         return get_signal(A, phase)
