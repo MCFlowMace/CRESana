@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from scipy.interpolate import RectBivariateSpline
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy import special
 
 from .cyclotronmotion import get_radiated_power
@@ -108,36 +109,37 @@ class FileGainPattern:
     Author: R. Reimann
     """
 
-    def __init__(self, data_paths, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
+    def __init__(self, path, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
         #P0 is the radiated power of the electron which was used for the gain pattern
         self.P0 = get_radiated_power(E_kin, theta, B_0)
-        self.load_power_map(data_paths)
+        self.load_power_map(path)
         self.clean_spikes()
         self.generate_spline()
 
-    def load_power_map(self, data_paths):
-        power = None
-        radius = None
-        z_pos = None
-        for path in data_paths:
-            data = np.genfromtxt(path, delimiter=",")
+    def load_power_map(self, path):
 
-            z = data.flatten()[::4]/1000 #in m
-            r = data.flatten()[1::4]/1000 #in m
-            p = data.flatten()[2::4]
+        data = np.loadtxt(path, delimiter=',')
 
-            if power is None:
-                z_pos = np.array(sorted(set(z)))
-                radius = np.array(sorted(set(r)))
-                power = p.reshape((len(set(z)), len(set(r))))
-            else:
-                if not all(z_pos == np.array(sorted(set(z)))):
-                    print("Warning")
-                radius = np.concatenate([radius, np.array(sorted(set(r)))])
-                power = np.concatenate([power, p.reshape((len(set(z)), len(set(r))))], axis=-1)
-        self.r_pos = z_pos
-        self.d_pos = radius
-        self.power = power/(self.P0*ev)
+        r = data[:,0]
+        z = data[:,1]
+        p = data[:,2]
+
+        df = pd.DataFrame({'z': z, 'r': r, 'p': p})
+        df_sorted = df.sort_values(by=['r', 'z'])
+
+        z = np.array(df_sorted['z'])
+        r = np.array(df_sorted['r'])
+        p = np.array(df_sorted['p'])
+
+        r_vals = np.unique(r)
+        z_vals = np.unique(z)
+
+        power = p.reshape(r_vals.shape[0], z_vals.shape[0])
+
+        self.r_pos = z_vals
+        self.d_pos = r_vals
+        print(z_vals.shape, r_vals.shape)
+        self.power = power#/(self.P0*ev)
 
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):
@@ -151,7 +153,7 @@ class FileGainPattern:
                     self.power[i,j] = np.mean(mean)
 
     def generate_spline(self):
-        self.spline = RectBivariateSpline(self.r_pos, self.d_pos, self.power)
+        self.spline = RectBivariateSpline(self.r_pos, self.d_pos, self.power.transpose())
 
     def __call__(self, r, d, grid=False):
         return self.spline(r, d, grid=grid)
@@ -163,7 +165,7 @@ class FileGainPattern:
 
         power_map = self.spline(self.r_pos, self.d_pos, grid=True)
         print(power_map.shape)
-        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", **kwargs)
+        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", zorder=2, **kwargs)
         ax.set_aspect("equal")
         cb = plt.colorbar(im, ax=ax)
         cb.set_label("Detected power/Radiated power")
