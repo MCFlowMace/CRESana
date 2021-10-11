@@ -138,8 +138,8 @@ class FileGainPattern:
 
         self.r_pos = z_vals
         self.d_pos = r_vals
-        print(z_vals.shape, r_vals.shape)
-        self.power = power#/(self.P0*ev)
+
+        self.power = power/(self.P0*ev)
 
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):
