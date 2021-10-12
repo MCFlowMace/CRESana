@@ -109,12 +109,20 @@ class FileGainPattern:
     Author: R. Reimann
     """
 
-    def __init__(self, path, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
+    def __init__(self, path, tf, N, R_a, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
         #P0 is the radiated power of the electron which was used for the gain pattern
-        self.P0 = get_radiated_power(E_kin, theta, B_0)
+        #self.P0 = get_radiated_power(E_kin, theta, B_0)
+        self.calc_normalization(E_kin, theta, B_0, tf, N, R_a)
         self.load_power_map(path)
         self.clean_spikes()
         self.generate_spline()
+
+    def calc_normalization(self, E_kin, theta, B_0, tf, N, R_a):
+
+        R_kt = 50
+
+        P0 = get_radiated_power(E_kin, theta, B_0)*ev
+        self.normalization = R_kt/(P0*R_a*N*np.abs(tf)**2)
 
     def load_power_map(self, path):
 
@@ -139,7 +147,7 @@ class FileGainPattern:
         self.r_pos = z_vals
         self.d_pos = r_vals
 
-        self.power = power/(self.P0*ev)
+        self.power = power*self.normalization
 
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):
