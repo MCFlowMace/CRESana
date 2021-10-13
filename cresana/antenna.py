@@ -147,7 +147,7 @@ class FileGainPattern:
         self.r_pos = z_vals
         self.d_pos = r_vals
 
-        self.power = power*self.normalization
+        self.power = power#*self.normalization
 
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):

@@ -96,7 +96,7 @@ def find_nearest_samples(t1, t2):
 
 def power_to_voltage(P):
 
-    resistance = 50 #ohm
+    resistance = 390 # 50 #ohm
     return np.sqrt(P*resistance)
 
 class SignalModel:
