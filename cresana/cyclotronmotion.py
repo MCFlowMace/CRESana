@@ -13,14 +13,24 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
 from .axialmotion import get_relativistic_velocity
 
+#~ def get_omega_cyclotron(B, E_kin):
+
+    #~ '''
+    #~ B - magnetic field value in T
+    #~ E_kin - electron kinetic energy in eV
+    #~ '''
+
+    #~ return speed_of_light*speed_of_light*B/(E0_electron + E_kin)
+
 def get_omega_cyclotron(B, E_kin):
 
     '''
     B - magnetic field value in T
     E_kin - electron kinetic energy in eV
     '''
-
-    return speed_of_light*speed_of_light*B/(E0_electron + E_kin)
+    m = 9.1093826e-31
+    e = 1.60217653e-19
+    return e*B/(m + E_kin*e/speed_of_light**2)
 
 def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
 
