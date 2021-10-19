@@ -13,7 +13,9 @@ import numpy as np
 from .physicsconstants import speed_of_light, ev
 from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power, get_omega_cyclotron_time_dependent
 from .electronsim import simulate_electron
+from .utility import get_pos
 from scipy.integrate import cumtrapz
+from scipy.interpolate import interp1d
 
 import matplotlib.pyplot as plt
 
@@ -115,24 +117,34 @@ class SignalModel:
         t_sample = self.sampler(N)
 
         t_traj = electron_sim.t
+        E_kin = electron_sim.E_kin
         d_antenna = self.antenna_array.get_distance(electron_sim.coords)
         d_antenna_abs = np.sqrt(np.sum(d_antenna**2, axis=-1))
         t_antenna = t_traj + d_antenna_abs/speed_of_light
 
         causal_ind = (t_sample-t_antenna[0,0])>0
         t_causal = t_sample[causal_ind]
-        t_sample_mod, ind = find_nearest_samples(t_causal, t_antenna[0])
+        #t_sample_mod, ind = find_nearest_samples(t_causal, t_antenna[0])
 
-        print(d_antenna.shape)
-        print(ind.shape)
+        t_ret_f = interp1d(t_antenna[0], t_traj, kind='cubic')
+        B_f = interp1d(t_antenna[0], electron_sim.B_vals, kind='cubic')
+        theta_f = interp1d(t_antenna[0], electron_sim.theta, kind='cubic')
+        d_antenna_x = interp1d(t_antenna[0], d_antenna[0,:,0], kind='cubic')
+        d_antenna_y = interp1d(t_antenna[0], d_antenna[0,:,1], kind='cubic')
+        d_antenna_z = interp1d(t_antenna[0], d_antenna[0,:,2], kind='cubic')
 
-        t_ret = t_traj[ind]
+        t_ret = t_ret_f(t_causal)
+        B_sample = B_f(t_causal)
+        theta = theta_f(t_causal)
+        d_antenna_sample = get_pos(d_antenna_x(t_causal), d_antenna_y(t_causal), d_antenna_z(t_causal))
 
-        E_kin = electron_sim.E_kin
-        B_sample = electron_sim.B_vals[ind]
-        theta = electron_sim.theta[ind]
-        d_antenna = d_antenna[:,ind]
-        #d_antenna_abs =
+        d_antenna_sample = np.tile(d_antenna_sample, (d_antenna.shape[0],1,1))
+
+        #t_ret = t_traj[ind]
+
+        #B_sample = electron_sim.B_vals[ind]
+        #theta = electron_sim.theta[ind]
+        #d_antenna = d_antenna[:,ind]
 
         A = np.zeros((d_antenna.shape[0], t_sample.shape[0]))
         phase = np.zeros((d_antenna.shape[0], t_sample.shape[0]))
@@ -140,12 +152,11 @@ class SignalModel:
         power = get_radiated_power(E_kin, theta, B_sample)
         w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret)
 
-        gain = self.antenna_array.get_amplitude(d_antenna)
+        gain = self.antenna_array.get_amplitude(d_antenna_sample)
 
         print(t_sample.shape)
         print(gain.shape)
         print(w.shape)
-        print(t_sample_mod.shape)
         print(A.shape)
 
         detected_power = gain*power
