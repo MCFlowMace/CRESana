@@ -10,7 +10,8 @@ Date: August 11, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, UnivariateSpline, interp1d
+from scipy.optimize import curve_fit
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -103,6 +104,10 @@ def get_disc_solid_angle_general(d, r, R):
 
     return 2*np.pi-(2*d/R_max)*K(k)-np.pi*heuman_lambda(xi, k)
 
+def gauss(x, A, b):
+
+    return A*np.exp(-b*x**2)
+
 class FileGainPattern:
 
     """
@@ -165,6 +170,22 @@ class FileGainPattern:
 
     def __call__(self, r, d, grid=False):
         return self.spline(r, d, grid=grid)
+
+    def get_at_d(self, r, d):
+
+        vals = self.__call__(self.r_pos, d)
+
+       # spl = interp1d(self.r_pos, vals, kind='cubic', fill_value=0, bounds_error=False)
+        popt, _ = curve_fit(gauss, self.r_pos, vals)
+
+        plt.plot(self.r_pos, vals, ls='None', marker='*')
+        #plt.plot(r, spl(r))
+        plt.plot(r, gauss(r, popt[0], popt[1]))
+        plt.show()
+
+        #return spl(r)
+        return gauss(r, popt[0], popt[1])
+
 
     def plot(self, **kwargs):
         fig, ax = plt.subplots(figsize=(3*2,6*2))
@@ -234,7 +255,8 @@ class AntennaArray:
     def get_amplitude(self, dist):
         r = np.sqrt(dist[:,:,0]**2 + dist[:,:,1]**2)
         z = dist[:,:,2]
-        return self.gain_f(z, r)
+        #return self.gain_f(z, r)
+        return self.gain_f.get_at_d(z, r[0,0])
 
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
