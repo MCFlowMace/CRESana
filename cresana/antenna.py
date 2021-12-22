@@ -218,17 +218,25 @@ class DiscSolidAngleGainPattern:
 
 class AntennaArray:
 
-    def __init__(self, positions, amplitude_function):
+    def __init__(self, positions, detected_power_scaling_function, resistance=50):
         #attention !!! orientation of antenna is NOT included
         self.positions = positions
-        self.amplitude_function = amplitude_function
+        self.detected_power_scaling_function = detected_power_scaling_function
+        self.resistance = resistance
         
     def get_distance(self, pos):
         return pos - np.expand_dims(self.positions, 1)
         
-    def get_amplitude(self, dist):
-        return self.amplitude_function(dist)
-
+    def power_to_voltage(self, P):
+        return np.sqrt(P*ev*self.resistance)
+    
+    def get_detected_power(self, dist, P_emitted):
+        return P_emitted*self.detected_power_scaling_function(dist)
+        
+    def get_amplitude(self, dist, P_emitted):
+        P_detected = self.get_detected_power(dist, P_emitted)
+        return self.power_to_voltage(P_detected)
+        
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
 
