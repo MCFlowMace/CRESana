@@ -17,23 +17,22 @@ import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-
 from .cresphysics import get_relativistic_velocity
 
-def get_x(R, phi):
 
+def get_x(R, phi):
     return R*np.cos(phi)
 
-def get_y(R, phi):
 
+def get_y(R, phi):
     return R*np.sin(phi)
 
-def gradB_phase(t, omega, phi):
 
+def gradB_phase(t, omega, phi):
     return t*omega + phi
 
-class Electron:
 
+class Electron:
     """Represents the initial state of an electron.
 
     Attributes
@@ -47,7 +46,6 @@ class Electron:
     """
 
     def __init__(self, E_kin, pitch, r=0, phi=0, z0=0, v_phi=0):
-
         self._E_kin = E_kin
         self._pitch = pitch/180*np.pi
         self._x0 = r*np.cos(phi)
@@ -69,7 +67,6 @@ class Electron:
         return self._v0
 
     def __repr__(self):
-
         return ("Kinetic energy : {0:10.4f} eV \n".format(self._E_kin)
                 +"Pitch angle:  {0:8.4f} ° \n".format(self._pitch/np.pi*180)
                 +"Velocity:  {0:14.2f} m/s \n".format(self._v0)
@@ -81,7 +78,6 @@ class Electron:
 
 
 class ElectronSim:
-
     """Represents an electron simulation result.
 
     Attributes
@@ -95,19 +91,18 @@ class ElectronSim:
     """
 
     def __init__(self, coords, t, B_vals, E_kin, theta):
-
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
         self.theta = theta
 
-def differentiate(y, dx):
 
+def differentiate(y, dx):
     return (y[2:] - y[:-2])/(2*dx) # = d/dx y[1:-1]
 
-def simulate_electron(electron, sampler, trap, N):
 
+def simulate_electron(electron, sampler, trap, N):
     t = sampler(N+2)
     t = t-t[1]
     coords = trap.trajectory(electron)(t)
@@ -117,8 +112,8 @@ def simulate_electron(electron, sampler, trap, N):
 
     return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, pitch)
 
-def read_kass_sim(name):
 
+def read_kass_sim(name):
     file_input = uproot.open(name)
 
     tree = file_input['component_step_world_DATA']
@@ -150,5 +145,4 @@ def read_kass_sim(name):
     coords = get_pos(x, y, z)
 
     return ElectronSim(coords, t, B_vals, E_kin[0], pitch)
-
 

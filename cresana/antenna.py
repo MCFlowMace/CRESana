@@ -10,6 +10,7 @@ Date: August 11, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
+
 from scipy.interpolate import RectBivariateSpline
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,18 +20,17 @@ from scipy import special
 from .cresphysics import get_radiated_power
 from .physicsconstants import ev
 
+
 def fake_AM(x, sigma, A_0):
     return A_0 * np.exp(-0.5*(x/sigma)**2)
     
 
 def get_disc_solid_angle(d, R, r):
-
     """
     d - distance between source and disc
     R - radius of the disc
     r - radial position of the source
     """
-
     b = np.broadcast(d, r)
     res = np.empty(b.shape)
     d_broad = np.broadcast_to(d, b.shape)
@@ -45,7 +45,6 @@ def get_disc_solid_angle(d, R, r):
     
 
 def get_disc_solid_angle_on_axis(d, R):
-
     """
     d - distance between source and disc
     R - radius of the disc
@@ -63,39 +62,30 @@ def get_disc_solid_angle_general(d, r, R):
     R - radius of the disc
     r - radial position of the source
     """
-
     # reference: https://aip.scitation.org/doi/pdf/10.1063/1.1716590
-
     def K(k):
         return special.ellipk(k**2)
-        
 
     def AlphaSqr(r_0,r_m):
         return 4*np.abs(r_0)*np.abs(r_m)/(np.abs(r_0)+np.abs(r_m))**2
         
-
     def R1(L,r_0,r_m):
         return np.sqrt(L**2+(np.abs(r_m)-np.abs(r_0))**2)
         
-
     def RMax(L,r_0,r_m):
         return np.sqrt(L**2+(np.abs(r_m)+np.abs(r_0))**2)
         
-
     def fk(L,r_0,r_m):
         R_1=R1(L,r_0,r_m)
         R_Max=RMax(L,r_0,r_m)
         return np.sqrt(1-(R_1/R_Max)**2)
         
-
     def Xi(L,r_0,r_m):
         return np.arctan2(L,np.abs(r_0-r_m))
-        
 
     def KM1(k):
         return special.ellipkm1(k**2)
         
-
     #logic from here https://math.stackexchange.com/q/629326
     def heuman_lambda(xi,k):
         k_bar=np.sqrt(1-k**2)
@@ -105,7 +95,6 @@ def get_disc_solid_angle_general(d, r, R):
         E_xik=special.ellipeinc(xi, k_bar**2)
         return 2*(E_k*F_xik+K_k*E_xik-K_k*F_xik)/np.pi
         
-
     R_max=RMax(d, r, R)
     R_1=R1(d, r, R)
     k=fk(d, r, R)
@@ -116,7 +105,6 @@ def get_disc_solid_angle_general(d, r, R):
     
 
 class FileGainPattern:
-
     """
     Author: R. Reimann
     """
@@ -129,17 +117,12 @@ class FileGainPattern:
         self.clean_spikes()
         self.generate_spline()
         
-
     def calc_normalization(self, E_kin, theta, B_0, tf, N, R_a):
-
         R_kt = 50
-
         P0 = get_radiated_power(E_kin, theta, B_0)*ev
         self.normalization = R_kt/(P0*R_a*N*np.abs(tf)**2)
-        
 
     def load_power_map(self, path):
-
         data = np.loadtxt(path, delimiter=',')
 
         r = data[:,0]
@@ -163,7 +146,6 @@ class FileGainPattern:
 
         self.power = power#*self.normalization
         
-
     def clean_spikes(self):
         for i in range(1, len(self.power)-1):
             for j in range(1, len(self.power[i])-1):
@@ -175,14 +157,11 @@ class FileGainPattern:
                 if np.abs((np.mean(mean)-self.power[i,j])/np.mean(mean)) > 0.7:
                     self.power[i,j] = np.mean(mean)
                     
-
     def generate_spline(self):
         self.spline = RectBivariateSpline(self.r_pos, self.d_pos, self.power.transpose())
-        
 
     def __call__(self, r, d, grid=False):
         return self.spline(r, d, grid=grid)
-        
 
     def plot(self, **kwargs):
         fig, ax = plt.subplots(figsize=(3*2,6*2))
@@ -208,22 +187,18 @@ class DiscSolidAngleGainPattern:
         self.generate_spline()
         self.R = R
         
-
     def generate_gain_map(self, d_max, n_r, n_d):
         self.d_pos = np.linspace(0.0, d_max, n_d)
         self.r_pos = np.linspace(0.0, 1.0, n_r, endpoint=False)
         self.gains = get_disc_solid_angle_general(np.expand_dims(self.d_pos,1), self.r_pos, 1.0)/(4*np.pi)
         print(self.gains.shape)
         
-
     def generate_spline(self):
         self.spline = RectBivariateSpline(self.d_pos, self.r_pos, self.gains)
-        
 
     def __call__(self, d, r, grid=False):
         return self.spline(np.abs(d)/self.R, r/self.R, grid=grid)
         
-
     def plot(self, **kwargs):
         fig, ax = plt.subplots()
 
@@ -244,20 +219,15 @@ class DiscSolidAngleGainPattern:
 class AntennaArray:
 
     def __init__(self, positions, amplitude_function):
-
         #attention !!! orientation of antenna is NOT included
-
         self.positions = positions
         self.amplitude_function = amplitude_function
         
-
     def get_distance(self, pos):
         return pos - np.expand_dims(self.positions, 1)
         
-
     def get_amplitude(self, dist):
         return self.amplitude_function(dist)
-        
 
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):

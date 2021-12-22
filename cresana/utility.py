@@ -11,6 +11,6 @@ __all__ = []
 
 import numpy as np
 
-def get_pos(x, y, z):
 
+def get_pos(x, y, z):
     return np.vstack((x,y,z)).transpose()
