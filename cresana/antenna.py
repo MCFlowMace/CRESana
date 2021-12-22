@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import special
 
-from .cyclotronmotion import get_radiated_power
+from .cresphysics import get_radiated_power
 from .physicsconstants import ev
 
 def fake_AM(x, sigma, A_0):

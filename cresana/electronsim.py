@@ -18,15 +18,7 @@ import uproot
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 
-def get_relativistic_velocity(E_kin):
-
-    '''
-    E_kin - electron kinetic energy in eV
-    '''
-
-    relative_energy = E0_electron/(E0_electron + E_kin)
-
-    return np.sqrt(1-relative_energy**2)*speed_of_light
+from .cresphysics import get_relativistic_velocity
 
 def get_x(R, phi):
 

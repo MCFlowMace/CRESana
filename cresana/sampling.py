@@ -11,7 +11,7 @@ __all__ = []
 
 import numpy as np
 from .physicsconstants import speed_of_light, ev
-from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power, get_omega_cyclotron_time_dependent
+from .cresphysics import get_radiated_power, get_omega_cyclotron_time_dependent
 from .electronsim import simulate_electron
 from scipy.integrate import cumtrapz
 
