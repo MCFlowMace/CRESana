@@ -11,3 +11,4 @@ Date: July 19, 2021
 from .trap import HarmonicTrap, BoxTrap, BathtubTrap, ArbitraryTrap
 from .electronsim import Electron, simulate_electron, read_kass_sim, ElectronSim
 from .sampling import SignalModel
+from .antenna import AntennaArray
