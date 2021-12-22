@@ -12,7 +12,8 @@ with open("README.md", "r") as fh:
 
 required = [
     "numpy",
-    "scipy"
+    "scipy",
+    "uproot"
 ]
 
 setuptools.setup(
