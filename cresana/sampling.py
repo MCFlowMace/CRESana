@@ -121,12 +121,21 @@ class SignalModel:
     def calc_antenna_dist(self, coords):
         self.dist_cache = self.antenna_array.get_distance(coords)
         
-    def get_sample_param(self, electron_sim, t_retarded):
+    def enforce_causality(self, t_retarded, t_ret_correct, B_sample, theta):
         
-        #1 is first causal index at our sampling rates and distances
-        t_ret_correct, sample_ind_correct = find_nearest_samples(t_retarded[0,1:], electron_sim.t)
+        ind_non_causal = t_retarded<0
+        B_sample[ind_non_causal] = 0
+        t_ret_correct[ind_non_causal] = 0
+        
+    def get_sampled_model_parameters(self, electron_sim, t_retarded):
+        
+        t_retarded_mod = t_retarded[0]
+
+        t_ret_correct, sample_ind_correct = find_nearest_samples(t_retarded_mod, electron_sim.t)
         B_sample = electron_sim.B_vals[sample_ind_correct]
         theta = electron_sim.theta[sample_ind_correct]
+        
+        self.enforce_causality(t_retarded_mod, t_ret_correct, B_sample, theta)
         
         return t_ret_correct, B_sample, theta
 
@@ -138,22 +147,14 @@ class SignalModel:
 
         t_ret = self.get_retarded_time(t, coords)
 
-        t_ret_correct, B_sample, theta = self.get_sample_param(electron_sim, t_ret)
-
-        A = np.zeros(t_ret.shape)
-        phase = np.zeros(t_ret.shape)
+        t_ret_correct, B_sample, theta = self.get_sampled_model_parameters(electron_sim, t_ret)
 
         radiated_power = get_radiated_power(electron_sim.E_kin, theta, B_sample)
         w = get_omega_cyclotron_time_dependent(B_sample, electron_sim.E_kin, 
                                                 radiated_power, t_ret_correct)
-
-       # gain = self.antenna_array.get_amplitude(dist)
-
-       # detected_power = gain[:,1:]*power
-       # A[:,1:] = power_to_voltage(detected_power*ev)
-
-        A[:,1:] = self.antenna_array.get_amplitude(self.dist_cache[:,1:,:], radiated_power)
-        phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
+        
+        A = self.antenna_array.get_amplitude(self.dist_cache, radiated_power)
+        phase = get_cyclotron_phase_int(w, t_ret_correct)
 
         phase -= self.w_mix*t
 
