@@ -124,7 +124,7 @@ class SignalModel:
     def get_sample_param(self, electron_sim, t_retarded):
         
         #1 is first causal index at our sampling rates and distances
-        t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
+        t_ret_correct, sample_ind_correct = find_nearest_samples(t_retarded[0,1:], electron_sim.t)
         B_sample = electron_sim.B_vals[sample_ind_correct]
         theta = electron_sim.theta[sample_ind_correct]
         
@@ -152,7 +152,7 @@ class SignalModel:
        # detected_power = gain[:,1:]*power
        # A[:,1:] = power_to_voltage(detected_power*ev)
 
-        A[:,1:] = self.antenna_array.get_amplitude(radiated_power, self.dist_cache)
+        A[:,1:] = self.antenna_array.get_amplitude(self.dist_cache[:,1:,:], radiated_power)
         phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
 
         phase -= self.w_mix*t
