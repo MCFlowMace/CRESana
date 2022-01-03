@@ -92,6 +92,16 @@ def find_nearest_samples(t1, t2):
     last = np.searchsorted(ind, t2.shape[0]-1)
 
     return t2[ind[:last]], ind[:last]
+    
+    
+def find_nearest_samples2d(t1, t2):
+    t = np.empty(shape=t1.shape)
+    ind = np.empty(shape=t1.shape, dtype=np.int64)
+    
+    for i in range(t1.shape[0]):
+        t[i], ind[i] = find_nearest_samples(t1[i], t2)
+        
+    return t, ind
 
 
 class SignalModel:
@@ -128,14 +138,12 @@ class SignalModel:
         t_ret_correct[ind_non_causal] = 0
         
     def get_sampled_model_parameters(self, electron_sim, t_retarded):
-        
-        t_retarded_mod = t_retarded[0]
 
-        t_ret_correct, sample_ind_correct = find_nearest_samples(t_retarded_mod, electron_sim.t)
+        t_ret_correct, sample_ind_correct = find_nearest_samples2d(t_retarded, electron_sim.t)
         B_sample = electron_sim.B_vals[sample_ind_correct]
         theta = electron_sim.theta[sample_ind_correct]
         
-        self.enforce_causality(t_retarded_mod, t_ret_correct, B_sample, theta)
+        self.enforce_causality(t_retarded, t_ret_correct, B_sample, theta)
         
         return t_ret_correct, B_sample, theta
 
