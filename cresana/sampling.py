@@ -133,6 +133,13 @@ class SignalModel:
         
     def enforce_causality(self, t_retarded, t_ret_correct, B_sample, theta):
         
+        # setting to zero adds a small error for the initial phase in the phase integral
+        # since this way the integral starts from t_ret=0 (which is correct) but 
+        # it is assumed that omega(t_ret=0) = 0
+        # the alternative solution of passing only the causal indices to the integral
+        # has a wrong initial phase as well since it starts the integral from
+        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
+        # and integrating from there
         ind_non_causal = t_retarded<0
         B_sample[ind_non_causal] = 0
         t_ret_correct[ind_non_causal] = 0
