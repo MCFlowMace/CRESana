@@ -216,19 +216,19 @@ class DiscSolidAngleGainPattern:
         ax.set_ylabel("r/R")
 
 
-def calculate_received_power(P_transmitted, D_transmitter, D_receiver, d, la):
+def calculate_received_power(P_transmitted, D_transmitter, w_transmitter, D_receiver, d_squared):
     """
     Friis transmission equation
     """
-    return P_transmitted*D_transmitter*D_receiver*(la/(4*np.pi*d))**2
+    return P_transmitted*D_transmitter*D_receiver*np.pi*speed_of_light**2/(w_transmitter**2*d_squared)
     
     
 class AntennaArray:
 
-    def __init__(self, positions, detected_power_scaling_function, resistance=50):
+    def __init__(self, positions, directive_gain_function, resistance=50):
         #attention !!! orientation of antenna is NOT included
         self.positions = positions
-        self.detected_power_scaling_function = detected_power_scaling_function
+        self.directive_gain_function = directive_gain_function
         self.resistance = resistance
         
     def get_distance(self, pos):
@@ -237,12 +237,17 @@ class AntennaArray:
     def power_to_voltage(self, P):
         return np.sqrt(P*ev*self.resistance)
     
-    def get_detected_power(self, dist, P_emitted):
-        return P_emitted*self.detected_power_scaling_function(dist)
+    def get_detected_power(self, dist, P_transmitted, D_transmitter, w_transmitter):
         
-    def get_amplitude(self, dist, P_emitted):
-        P_detected = self.get_detected_power(dist, P_emitted)
-        return self.power_to_voltage(P_detected)
+        D_receiver = self.directive_gain_function(dist)
+        d_squared = np.sum(dist**2, axis=-1)
+        
+        return calculate_received_power(P_transmitted, D_transmitter, 
+                                        w_transmitter, D_receiver, d_squared)
+        
+    def get_amplitude(self, dist, P_transmitted, D_transmitter, w_transmitter):
+        P_received = self.get_detected_power(dist, P_transmitted, D_transmitter, w_transmitter)
+        return self.power_to_voltage(P_received)
         
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
