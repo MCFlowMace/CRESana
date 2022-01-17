@@ -90,12 +90,13 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin, theta):
+    def __init__(self, coords, t, B_vals, E_kin, theta, B_direction):
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
         self.theta = theta
+        self.B_direction = B_direction
 
 
 def differentiate(y, dx):
@@ -109,8 +110,10 @@ def simulate_electron(electron, sampler, trap, N):
     B_vals = trap.B_field(coords[:,2])
     vz = differentiate(coords[:,2], sampler.dt)
     pitch = np.arccos(vz/electron.v0)
+    B_direction = np.array([0,0,1])
 
-    return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, pitch)
+    return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, 
+                        pitch, B_direction)
 
 
 def read_kass_sim(name):
@@ -143,6 +146,8 @@ def read_kass_sim(name):
     pitch = np.arccos(pz/p)
 
     coords = get_pos(x, y, z)
+    
+    B_direction = np.array([B_x[0], B_y[0], B_z[0])/B_vals[0]
 
-    return ElectronSim(coords, t, B_vals, E_kin[0], pitch)
+    return ElectronSim(coords, t, B_vals, E_kin[0], pitch, B_direction)
 
