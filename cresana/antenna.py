@@ -18,7 +18,7 @@ import pandas as pd
 from scipy import special
 
 from .cresphysics import get_radiated_power
-from .physicsconstants import ev
+from .physicsconstants import ev, speed_of_light
 
 
 def fake_AM(x, sigma, A_0):
@@ -220,7 +220,13 @@ def calculate_received_power(P_transmitted, D_transmitter, w_transmitter, D_rece
     """
     Friis transmission equation
     """
-    return P_transmitted*D_transmitter*D_receiver*np.pi*speed_of_light**2/(w_transmitter**2*d_squared)
+    P_received = np.empty(shape=P_transmitted.shape)
+    P_received = P_transmitted*D_transmitter*D_receiver*np.pi*speed_of_light**2/d_squared
+    
+    ind = w_transmitter != 0
+    P_received[ind] /= w_transmitter[ind]**2
+    P_received[np.invert(ind)] = 0
+    return P_received
     
     
 class AntennaArray:
