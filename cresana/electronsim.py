@@ -147,7 +147,7 @@ def read_kass_sim(name):
 
     coords = get_pos(x, y, z)
     
-    B_direction = np.array([B_x[0], B_y[0], B_z[0])/B_vals[0]
+    B_direction = np.array([B_x[0], B_y[0], B_z[0]])/B_vals[0]
 
     return ElectronSim(coords, t, B_vals, E_kin[0], pitch, B_direction)
 
