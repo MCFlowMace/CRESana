@@ -170,7 +170,7 @@ class SignalModel:
         
         phase = get_cyclotron_phase_int(w, t_ret_correct)
         
-        angle = np.arccos(np.dot(-dist, electron_sim.B_direction)/self.d_abs_cache)
+        angle = np.arccos(np.dot(-self.dist_cache, electron_sim.B_direction)/self.d_abs_cache)
         
         directive_gain = get_directive_gain(electron_sim.E_kin, theta, angle)
         A = self.antenna_array.get_amplitude(self.dist_cache, radiated_power, 
