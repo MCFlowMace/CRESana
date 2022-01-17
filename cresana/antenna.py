@@ -216,6 +216,13 @@ class DiscSolidAngleGainPattern:
         ax.set_ylabel("r/R")
 
 
+def calculate_received_power(P_transmitted, D_transmitter, D_receiver, d, la):
+    """
+    Friis transmission equation
+    """
+    return P_transmitted*D_transmitter*D_receiver*(la/(4*np.pi*d))**2
+    
+    
 class AntennaArray:
 
     def __init__(self, positions, detected_power_scaling_function, resistance=50):
