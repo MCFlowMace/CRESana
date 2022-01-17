@@ -14,7 +14,7 @@ from scipy.integrate import cumtrapz
 import matplotlib.pyplot as plt
 
 from .physicsconstants import speed_of_light, ev
-from .cresphysics import get_radiated_power, get_omega_cyclotron_time_dependent
+from .cresphysics import get_radiated_power, get_omega_cyclotron_time_dependent, get_directive_gain
 from .electronsim import simulate_electron
 
 
@@ -122,14 +122,14 @@ class SignalModel:
     
     def get_retarded_time(self, t, coords):
         #dist = self.antenna_array.get_distance(coords)
-        d = np.sqrt(np.sum(self.dist_cache**2, axis=-1))
-        t_travel = d/speed_of_light
+        t_travel = self.d_abs_cache/speed_of_light
         t_ret = t - t_travel
         
         return t_ret
     
     def calc_antenna_dist(self, coords):
         self.dist_cache = self.antenna_array.get_distance(coords)
+        self.d_abs_cache = np.sqrt(np.sum(self.dist_cache**2, axis=-1))
         
     def enforce_causality(self, t_retarded, t_ret_correct, B_sample, theta):
         
@@ -168,8 +168,13 @@ class SignalModel:
         w = get_omega_cyclotron_time_dependent(B_sample, electron_sim.E_kin, 
                                                 radiated_power, t_ret_correct)
         
-        A = self.antenna_array.get_amplitude(self.dist_cache, radiated_power)
         phase = get_cyclotron_phase_int(w, t_ret_correct)
+        
+        angle = np.arccos(np.dot(-dist, electron_sim.B_direction)/self.d_abs_cache)
+        
+        directive_gain = get_directive_gain(electron_sim.E_kin, theta, angle)
+        A = self.antenna_array.get_amplitude(self.dist_cache, radiated_power, 
+                                                directive_gain, w)
 
         phase -= self.w_mix*t
 

@@ -246,7 +246,8 @@ class AntennaArray:
                                         w_transmitter, D_receiver, d_squared)
         
     def get_amplitude(self, dist, P_transmitted, D_transmitter, w_transmitter):
-        P_received = self.get_detected_power(dist, P_transmitted, D_transmitter, w_transmitter)
+        P_received = self.get_detected_power(dist, P_transmitted, D_transmitter, 
+                                                w_transmitter)
         return self.power_to_voltage(P_received)
         
     @classmethod
