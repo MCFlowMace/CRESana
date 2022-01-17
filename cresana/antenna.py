@@ -231,7 +231,7 @@ def calculate_received_power(P_transmitted, D_transmitter, w_transmitter, D_rece
     
 class AntennaArray:
 
-    def __init__(self, positions, directive_gain_function, resistance=50):
+    def __init__(self, positions, directive_gain_function, resistance=390):
         #attention !!! orientation of antenna is NOT included
         self.positions = positions
         self.directive_gain_function = directive_gain_function
@@ -257,7 +257,7 @@ class AntennaArray:
         return self.power_to_voltage(P_received)
         
     @classmethod
-    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
+    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f, resistance=390):
 
         z = np.linspace(z_min, z_max, n_rings)
 
@@ -270,7 +270,7 @@ class AntennaArray:
 
         positions = np.column_stack((xx.flatten(), yy.flatten(), zz.flatten()))
 
-        instance = cls(positions, gain_f)
+        instance = cls(positions, gain_f, resistance)
 
         return instance
 
