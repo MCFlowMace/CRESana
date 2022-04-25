@@ -122,21 +122,21 @@ def read_kass_sim(name):
     def data(key):
         return np.array(branches[key][:])
 
-    t = data(b'time')
+    t = data('time')
 
-    x = data(b'guiding_center_position_x')
-    y = data(b'guiding_center_position_y')
-    z = data(b'guiding_center_position_z')
+    x = data('guiding_center_position_x')
+    y = data('guiding_center_position_y')
+    z = data('guiding_center_position_z')
 
-    B_x = data(b'magnetic_field_x')
-    B_y = data(b'magnetic_field_y')
-    B_z = data(b'magnetic_field_z')
+    B_x = data('magnetic_field_x')
+    B_y = data('magnetic_field_y')
+    B_z = data('magnetic_field_z')
 
-    px = data(b'momentum_x')
-    py = data(b'momentum_y')
-    pz = data(b'momentum_z')
+    px = data('momentum_x')
+    py = data('momentum_y')
+    pz = data('momentum_z')
 
-    E_kin = data(b'kinetic_energy')
+    E_kin = data('kinetic_energy')
 
     B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
     p = np.sqrt(px**2 + py**2 + pz**2)
