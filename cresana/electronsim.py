@@ -90,12 +90,12 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin, theta, B_direction):
+    def __init__(self, coords, t, B_vals, E_kin, pitch, B_direction):
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
-        self.theta = theta
+        self.pitch = pitch
         self.B_direction = B_direction
 
 

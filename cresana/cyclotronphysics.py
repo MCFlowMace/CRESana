@@ -36,16 +36,10 @@ def get_omega_cyclotron(B, E_kin):
     return speed_of_light*speed_of_light*B/(E0_electron + E_kin)
     
 
-def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
-    w = get_omega_cyclotron(B, E_kin)
-
-    return w*(1+p*t/(E0_electron + E_kin))
-    
-
-def get_radiated_power(E_kin, theta, B):
+def get_radiated_power(E_kin, pitch, B):
     beta = get_beta(E_kin)
     w0 = get_omega_cyclotron(B, 0.0)
-    scaling_factor = beta**2*np.sin(theta)**2/(1-beta**2)
+    scaling_factor = beta**2*np.sin(pitch)**2/(1-beta**2)
 
     return w0**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
     
@@ -83,5 +77,13 @@ def get_directive_gain(E_kin, pitch, angle):
     return doppler_correction(g, beta_parallel, angle)
     
 
-def get_slope(E_kin, p, w):
-    return p*w/(E0_electron + E_kin)
+#~ def get_slope(E_kin, p, w):
+    #~ return p*w/(E0_electron + E_kin)
+
+
+#~ def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
+    #~ w = get_omega_cyclotron(B, E_kin)
+
+    #~ return w*(1+p*t/(E0_electron + E_kin))
+    
+    
