@@ -14,6 +14,7 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
 from .electronsim import ElectronSim
 from .utility import norm_squared
+from .physicsconstants import ev
 
 from scipy.special import jv, jvp
 
@@ -100,6 +101,10 @@ def _gain_harmonic_n(beta_parallel, beta_ortho, n, theta):
     
     factor = 3*(1-beta**2)**2 * n**2/(beta_ortho**2 * ( 1 - beta_parallel*np.cos(theta))**3)
     
+    #this produces nans for theta=0 because it tries to evaluate j_n(n*x)/x
+    #can be solved in theory because j_1(x)/x -> 0.5 for x->0
+    #and j_{n>1}(x)/x -> 0 for x->0
+    #let's see if that case even shows up in actual sims
     bessel_sum = beta_ortho**2*jnd2 + ((np.cos(theta) - beta_parallel)/np.sin(theta))**2 * jn2
     
     return factor*bessel_sum
@@ -123,7 +128,7 @@ def _get_analytic_power(E_kin, pitch, B, theta, n=None):
     if n==None:
         gain = _gain_total(beta_parallel, beta_ortho, theta)
     else:
-        gain = _gain_harmonic_n(beta_paralle, beta_ortho, n, theta)
+        gain = _gain_harmonic_n(beta_parallel, beta_ortho, n, theta)
         
     P_emitter = P0*gain_doppler*gain
         
@@ -142,7 +147,7 @@ def _get_cres_frequencies(sr, n_harmonics, B, E_cres):
     return f_aliased
 
 
-def _get_cres_powers(E_kin, pitch, B, n_harmonics, polar):
+def _get_cres_powers(E_kin, pitch, B, n_harmonics, theta):
     
     p_n = np.zeros(n_harmonics)
 
@@ -152,10 +157,10 @@ def _get_cres_powers(E_kin, pitch, B, n_harmonics, polar):
     return p_n
 
 
-def get_cres_power_spec(E_cres, pitch, B, d, n_harmonics, polar, sr):
+def get_cres_power_spec(E_cres, pitch, B, n_harmonics, theta, sr):
     
-    f = get_cres_frequencies(sr, n_harmonics, B, E_cres)
-    p = get_cres_powers(E_cres, pitch, B, d, n_harmonics, polar)
+    f = _get_cres_frequencies(sr, n_harmonics, B, E_cres)
+    p = _get_cres_powers(E_cres, pitch, B, n_harmonics, theta)
     
     f_hermitian = np.concatenate((-f[-1:0:-1], f))
     p_hermitian = np.concatenate((p[-1:0:-1]/2, p/2))
