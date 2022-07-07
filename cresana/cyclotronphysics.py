@@ -132,6 +132,8 @@ def _get_analytic_power(E_kin, pitch, B, theta, n=None):
 
 def _get_cres_frequencies(sr, n_harmonics, B, E_cres):
     
+    from .utility import calc_aliased_frequencies
+    
     f_cyclotron = get_omega_cyclotron(B, E_cres)/(2*np.pi)
     f_harmonics = np.arange(n_harmonics)*f_cyclotron
 
