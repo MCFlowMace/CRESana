@@ -12,7 +12,12 @@ __all__ = []
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
+from .electronsim import ElectronSim
+from .utility import norm_squared
 
+from scipy.special import jv, jvp
+
+#Frequently used user functions
 
 def get_relativistic_velocity(E_kin):
     '''
@@ -43,11 +48,23 @@ def get_radiated_power(E_kin, pitch, B):
 
     return w0**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
     
+
+def get_slope(E_kin, p, w):
+    return p*w/(E0_electron + E_kin)
+
+
+def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
+    w = get_omega_cyclotron(B, E_kin)
+
+    return w*(1+p*t/(E0_electron + E_kin))
+
+
+#Other functions mostly for internal usage
+
+def _gain_total(beta_parallel, beta_ortho, theta):
     
-def get_directive_gain(E_kin, pitch, angle):
-    """
-    https://journals.aps.org/pra/abstract/10.1103/PhysRevA.36.1498
-    """
+    #https://journals.aps.org/pra/abstract/10.1103/PhysRevA.36.1498
+    
     def f_factor(beta_parallel, beta_ortho, theta):
     
         g_parallel = 1-beta_parallel*np.cos(theta)
@@ -67,39 +84,12 @@ def get_directive_gain(E_kin, pitch, angle):
         
         return 0.75*(1-beta**2)**2*f_factor(beta_parallel, beta_ortho, theta)
         
-    def doppler_correction(g, beta_parallel, theta):
-        return 1/(1 - beta_parallel*np.cos(theta))*g
-        
-    beta = get_beta(E_kin)
-    beta_parallel = beta*np.cos(pitch)
-    beta_ortho = beta*np.sin(pitch)
-    g = g_factor(beta_parallel, beta_ortho, angle)
-    return doppler_correction(g, beta_parallel, angle)
-    
-    
-    def f_factor(beta_parallel, beta_ortho, theta):
-    
-    g_parallel = 1-beta_parallel*np.cos(theta)
-    
-    denominator = 4*(g_parallel**2-beta_ortho**2*np.sin(theta)**2)**(7/2)
-    
-    enum1 = 4*g_parallel**2*((1+beta_parallel**2)*(1+np.cos(theta)**2) - 4*beta_parallel*np.cos(theta))
-    enum2 = (1- beta_parallel**2 + 3*beta_ortho**2)*beta_ortho**2*np.sin(theta)**4
-    
-    enum = enum1 - enum2
-    
-    return enum/denominator
+    return g_factor(beta_parallel, beta_ortho, theta)
 
 
-def g_factor(beta_parallel, beta_ortho, theta):
+def _gain_harmonic_n(beta_parallel, beta_ortho, n, theta):
     
-    
-    beta = np.sqrt(beta_parallel**2 + beta_ortho**2)
-    
-    return 0.75*(1-beta**2)**2*f_factor(beta_parallel, beta_ortho, theta)
-
-
-def g_harmonic_n(beta_parallel, beta_ortho, n, theta):
+     #https://journals.aps.org/pra/abstract/10.1103/PhysRevA.36.1498
     
     beta = np.sqrt(beta_parallel**2 + beta_ortho**2)
     
@@ -115,42 +105,32 @@ def g_harmonic_n(beta_parallel, beta_ortho, n, theta):
     return factor*bessel_sum
 
 
-def g_receive(beta_parallel, beta_ortho, theta, g_f):
-    
-    g = g_f(beta_parallel, beta_ortho, theta)
+def _doppler_factor(beta_parallel, theta):
     
     alpha = 1/(1 - beta_parallel*np.cos(theta))
     
+    return alpha
     
-    return alpha*g
 
-
-def get_analytic_power(E_cres, pitch, B, d, n=None, free_space=True):
+def _get_analytic_power(E_kin, pitch, B, theta, n=None):
     
-    beta_cres = get_relativistic_velocity(E_cres)/speed_of_light
-    beta_cres_parallel = beta_cres*np.cos(pitch)
-    beta_cres_ortho = beta_cres*np.sin(pitch)
-    P0 = get_radiated_power(E_cres, pitch, B)*ev
-    w = get_omega_cyclotron(B, E_cres)
-    
-    #print(P0, get_free_space_loss(w, d), P_free_space_loss)
-    la = 2*np.pi*speed_of_light/w
-    A_eff = la**2/(4*np.pi)
+    beta = get_beta(E_kin)
+    beta_parallel = beta*np.cos(pitch)
+    beta_ortho = beta*np.sin(pitch)
+    P0 = get_radiated_power(E_kin, pitch, B)*ev
+    gain_doppler = _doppler_factor(beta_parallel, theta)
     
     if n==None:
-        g_f = g_factor
-        P_in = P0*get_free_space_loss(w, d)#*tf_gain
+        gain = _gain_total(beta_parallel, beta_ortho, theta)
     else:
-        g_f = lambda beta_parallel, beta_ortho, theta : g_harmonic_n(beta_parallel, beta_ortho, n, theta)
-        P_in = P0*get_free_space_loss(w*n, d)#*tf_gain
+        gain = _gain_harmonic_n(beta_paralle, beta_ortho, n, theta)
         
-    if not free_space:
-        P_in = P0
-    
-    return A_eff, w, lambda theta: g_receive(beta_cres_parallel, beta_cres_ortho, theta, g_f)*P_in
+    P_emitter = P0*gain_doppler*gain
+        
+    return P_emitter
 
 
-def get_cres_frequencies(sr, n_harmonics, B, E_cres):
+def _get_cres_frequencies(sr, n_harmonics, B, E_cres):
     
     f_cyclotron = get_omega_cyclotron(B, E_cres)/(2*np.pi)
     f_harmonics = np.arange(n_harmonics)*f_cyclotron
@@ -160,13 +140,12 @@ def get_cres_frequencies(sr, n_harmonics, B, E_cres):
     return f_aliased
 
 
-def get_cres_powers(E_cres, pitch, B, d, n_harmonics, polar):
+def _get_cres_powers(E_kin, pitch, B, n_harmonics, polar):
     
     p_n = np.zeros(n_harmonics)
 
     for i in range(1, n_harmonics):
-        _, _, p_f = get_analytic_power(E_cres, pitch, B, d, n=i, free_space=False)
-        p_n[i] = p_f(polar)/(4*np.pi)
+        p_n[i] = _get_analytic_power(E_kin, pitch, B, theta, n=i)
         
     return p_n
 
@@ -184,47 +163,107 @@ def get_cres_power_spec(E_cres, pitch, B, d, n_harmonics, polar, sr):
     
 # polarization
     
-def get_system(r):
+def _get_polarization_vectors(r_norm, theta):
     
-    if np.all(np.abs(r - np.array([0,0,1])) <1e-7):
-        return np.array([0,-1,0]), np.array([1,0,0])
+    def _get_right_handed_coordinate_system(r):
     
-    a = np.array([0,0,1])
+        a = np.array([0,0,1])
+        
+        if np.all(np.abs(r - a) <1e-7):
+            return np.array([0,-1,0]), np.array([1,0,0])
+        
+        x = np.cross(r, a)
+        x = x/np.sqrt(np.sum(x**2))
+        y = np.cross(r, x)
+        
+        y = y/np.sqrt(np.sum(y**2))
+        
+        return x, y
+        
+    def _get_amplitudes(r, theta):
+        
+        costheta = np.cos(theta) #np.dot(r_norm, B_dir)
+        a_x = 1/np.sqrt(costheta**2 + 1)
+        a_y = costheta*a_x
+        
+        return a_x, a_y
     
-    x = np.cross(r, a)
-    x = x/np.sqrt(np.sum(x**2))
-    y = np.cross(r, x)
+    #r_norm = r/np.sqrt(np.sum(r**2))
     
-    y = y/np.sqrt(np.sum(y**2))
-    
-    return x, y
-    
-    
-def get_amplitudes(r, B_dir):
-    
-    costheta = np.dot(r_norm, B_dir)
-    a_x = 1/np.sqrt(costheta**2 + 1)
-    a_y = costheta*a_x
-    
-    return a_x, a_y
-    
-    
-def get_polarization_vectors(r, B_dir):
-    
-    r_norm = r/np.sqrt(np.sum(r**2))
-    
-    x, y = get_system(r_norm)
+    x, y = get_right_handed_coordinate_system(r_norm)
     a_x, a_y = get_amplitudes(r_norm, B_dir)
     
     return a_x*x, a_y*y
-
-#~ def get_slope(E_kin, p, w):
-    #~ return p*w/(E0_electron + E_kin)
-
-
-#~ def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
-    #~ w = get_omega_cyclotron(B, E_kin)
-
-    #~ return w*(1+p*t/(E0_electron + E_kin))
     
+
+#Class to bundle all necessary analytic descriptions of the cyclotron fields
+class AnalyticCyclotronField:
     
+    def __init__(self, electronsim, n_harmonic=None):
+        
+        self.electronsim = electronsim
+        # frequency is independent of point
+        self.w = get_omega_cyclotron(electronsim.B_vals, electronsim.E_kin)
+        self.n_harmonic = n_harmonic
+        
+    @classmethod
+    def make_from_params(cls, E_kin, pitch, B):
+        
+        coords = np.array([0., 0., 0.])
+        t = np.array([0.])
+        B_vals = np.array(np.sqrt(norm_squared(B)))
+        pitch_vals = np.array([pitch])
+        
+        electronsim = ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B[0]/B_vals[0])
+        instance = cls(electronsim)
+        
+        return instance
+        
+    def calc_d_vec_and_abs(self, pos):
+        r = np.expand_dims(pos, 1) - self.electronsim.coords
+        
+        d = np.sqrt(norm_squared(r))
+        d_vec = r/d
+        
+        return d_vec, d
+        
+    def calc_polar_angle(self, r_norm):
+
+        return np.arccos(np.dot(r_norm, self.electronsim.B_dir))
+        
+    def get_field_parameters(self, p):
+        """
+        Get the parameters that analytically describe the field at point p.
+        
+        Parameters
+        ---------
+        p : 2D np.array
+            points to evaluate the fields at
+            
+        Returns
+        ---------
+        w : 1D np.array
+            cyclotron frequency for each time sample of the electron simulation
+        P : 2D np.array
+            emitted power for the 1st harmonic of the field spectrum in the 
+            direction of each point in p and for each time sample of the
+            electron simulation
+        pol_x : 3D np.array
+            x vectors of polarization state. First axis is time, second
+            axis are the points p and third axis are the coordinates
+        pol_y : 3D np.array
+            y vectors of polarization state. First axis is time, second
+            axis are the points p and third axis are the coordinates
+        """
+        
+        d_vec, d = self.calc_d_vec_and_abs(pos)
+        theta = self.calc_polar_angle(d_vec)
+        
+        power = _get_analytic_power(self.electronsim.E_kin, 
+                                self.electronsim.pitch, 
+                                self.electronsim.B_vals, 
+                                theta, self.n_harmonic)
+        
+        pol_x, pol_y = _get_polarization_vectors(d_vec, theta)
+        
+        return self.w, power, pol_x, pol_y, d_vec, d, theta
