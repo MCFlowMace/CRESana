@@ -172,7 +172,7 @@ def get_cres_power_spec(E_cres, pitch, B, n_harmonics, theta, sr):
     
 def _get_polarization_vectors(r_norm, theta):
     
-    def _get_right_handed_coordinate_system(r):
+    def get_right_handed_coordinate_system(r):
     
         a = np.array([0,0,1])
         
@@ -187,7 +187,7 @@ def _get_polarization_vectors(r_norm, theta):
         
         return x, y
         
-    def _get_amplitudes(r, theta):
+    def get_amplitudes(r, theta):
         
         costheta = np.cos(theta) #np.dot(r_norm, B_dir)
         a_x = 1/np.sqrt(costheta**2 + 1)
@@ -198,9 +198,9 @@ def _get_polarization_vectors(r_norm, theta):
     #r_norm = r/np.sqrt(np.sum(r**2))
     
     x, y = get_right_handed_coordinate_system(r_norm)
-    a_x, a_y = get_amplitudes(r_norm, B_dir)
+    a_x, a_y = get_amplitudes(r_norm, theta)
     
-    return a_x*x, a_y*y
+    return np.expand_dims(a_x,-1)*x, np.expand_dims(a_y,-1)*y
     
 
 #Class to bundle all necessary analytic descriptions of the cyclotron fields
@@ -216,7 +216,7 @@ class AnalyticCyclotronField:
     @classmethod
     def make_from_params(cls, E_kin, pitch, B, n_harmonic=None):
         
-        coords = np.array([0., 0., 0.])
+        coords = np.array([[0., 0., 0.]])
         t = np.array([0.])
         B_vals = np.array(np.sqrt(norm_squared(np.expand_dims(B,0))))
         pitch_vals = np.array([pitch])
@@ -230,13 +230,13 @@ class AnalyticCyclotronField:
         r = np.expand_dims(pos, 1) - self.electronsim.coords
         
         d = np.sqrt(norm_squared(r))
-        d_vec = r/d
+        d_vec = r/np.expand_dims(d,-1)
         
         return d_vec, d
         
     def calc_polar_angle(self, r_norm):
 
-        return np.arccos(np.dot(r_norm, self.electronsim.B_dir))
+        return np.arccos(np.dot(r_norm, self.electronsim.B_direction))
         
     def get_field_parameters(self, p):
         """
@@ -263,7 +263,7 @@ class AnalyticCyclotronField:
             axis are the points p and third axis are the coordinates
         """
         
-        d_vec, d = self.calc_d_vec_and_abs(pos)
+        d_vec, d = self.calc_d_vec_and_abs(p)
         theta = self.calc_polar_angle(d_vec)
         
         power = _get_analytic_power(self.electronsim.E_kin, 
