@@ -218,10 +218,10 @@ class AnalyticCyclotronField:
         
         coords = np.array([0., 0., 0.])
         t = np.array([0.])
-        B_vals = np.array(np.sqrt(norm_squared(B)))
+        B_vals = np.array(np.sqrt(norm_squared(np.expand_dims(B,0))))
         pitch_vals = np.array([pitch])
         
-        electronsim = ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B[0]/B_vals[0])
+        electronsim = ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B/B_vals[0])
         instance = cls(electronsim, n_harmonic)
         
         return instance
