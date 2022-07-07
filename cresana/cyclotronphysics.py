@@ -214,7 +214,7 @@ class AnalyticCyclotronField:
         self.n_harmonic = n_harmonic
         
     @classmethod
-    def make_from_params(cls, E_kin, pitch, B):
+    def make_from_params(cls, E_kin, pitch, B, n_harmonic=None):
         
         coords = np.array([0., 0., 0.])
         t = np.array([0.])
@@ -222,7 +222,7 @@ class AnalyticCyclotronField:
         pitch_vals = np.array([pitch])
         
         electronsim = ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B[0]/B_vals[0])
-        instance = cls(electronsim)
+        instance = cls(electronsim, n_harmonic)
         
         return instance
         
