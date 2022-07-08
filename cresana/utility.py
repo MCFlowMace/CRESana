@@ -17,7 +17,16 @@ def get_pos(x, y, z):
     
 
 def norm_squared(x):
-    return np.sum(x**2, axis=-1)
+    return np.sum(x**2, axis=-1, keepdims=True)
+    
+    
+def norm(x):
+    return np.sqrt(norm_squared(x))
+    
+
+def normalize(x):
+    x_norm = norm(x)
+    return x/x_norm
     
     
 def calc_aliased_frequencies(frequencies, sr):

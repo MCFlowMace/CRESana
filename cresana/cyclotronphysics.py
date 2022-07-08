@@ -13,7 +13,7 @@ import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
 from .electronsim import ElectronSim
-from .utility import norm_squared
+from .utility import norm_squared, normalize
 from .physicsconstants import ev
 
 from scipy.special import jv, jvp
@@ -180,14 +180,14 @@ def _get_polarization_vectors(r_norm, theta):
             return np.array([0,-1,0]), np.array([1,0,0])
         
         x = np.cross(r, a)
-        x = x/np.sqrt(np.sum(x**2))
-        y = np.cross(r, x)
+        x = normalize(x)
         
-        y = y/np.sqrt(np.sum(y**2))
+        y = np.cross(r, x)
+        y = normalize(y)
         
         return x, y
         
-    def get_amplitudes(r, theta):
+    def get_amplitudes(theta):
         
         costheta = np.cos(theta) #np.dot(r_norm, B_dir)
         a_x = 1/np.sqrt(costheta**2 + 1)
@@ -195,10 +195,9 @@ def _get_polarization_vectors(r_norm, theta):
         
         return a_x, a_y
     
-    #r_norm = r/np.sqrt(np.sum(r**2))
-    
     x, y = get_right_handed_coordinate_system(r_norm)
-    a_x, a_y = get_amplitudes(r_norm, theta)
+    
+    a_x, a_y = get_amplitudes(theta)
     
     return np.expand_dims(a_x,-1)*x, np.expand_dims(a_y,-1)*y
     
@@ -230,7 +229,7 @@ class AnalyticCyclotronField:
         r = np.expand_dims(pos, 1) - self.electronsim.coords
         
         d = np.sqrt(norm_squared(r))
-        d_vec = r/np.expand_dims(d,-1)
+        d_vec = r/d
         
         return d_vec, d
         
