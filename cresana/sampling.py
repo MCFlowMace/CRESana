@@ -14,7 +14,7 @@ from scipy.integrate import cumtrapz
 import matplotlib.pyplot as plt
 
 from .physicsconstants import speed_of_light, ev
-from .cresphysics import get_radiated_power, get_omega_cyclotron_time_dependent, get_directive_gain
+from .cyclotronphysics import get_radiated_power, get_omega_cyclotron_time_dependent
 from .electronsim import simulate_electron
 
 

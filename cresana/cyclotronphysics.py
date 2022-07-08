@@ -12,7 +12,8 @@ __all__ = []
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
-from .electronsim import ElectronSim
+#from .electronsim import ElectronSim
+from . import electronsim
 from .utility import norm_squared, normalize
 from .physicsconstants import ev
 
@@ -205,11 +206,11 @@ def _get_polarization_vectors(r_norm, theta):
 #Class to bundle all necessary analytic descriptions of the cyclotron fields
 class AnalyticCyclotronField:
     
-    def __init__(self, electronsim, n_harmonic=None):
+    def __init__(self, e_simulation, n_harmonic=None):
         
-        self.electronsim = electronsim
+        self.e_simulation = e_simulation
         # frequency is independent of point
-        self.w = get_omega_cyclotron(electronsim.B_vals, electronsim.E_kin)
+        self.w = get_omega_cyclotron(e_simulation.B_vals, e_simulation.E_kin)
         self.n_harmonic = n_harmonic
         
     @classmethod
@@ -220,13 +221,13 @@ class AnalyticCyclotronField:
         B_vals = np.array(np.sqrt(norm_squared(np.expand_dims(B,0))))
         pitch_vals = np.array([pitch])
         
-        electronsim = ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B/B_vals[0])
-        instance = cls(electronsim, n_harmonic)
+        e_simulation = electronsim.ElectronSim(coords, t, B_vals, E_kin, pitch_vals, B/B_vals[0])
+        instance = cls(e_simulation, n_harmonic)
         
         return instance
         
     def calc_d_vec_and_abs(self, pos):
-        r = np.expand_dims(pos, 1) - self.electronsim.coords
+        r = np.expand_dims(pos, 1) - self.e_simulation.coords
         
         d = np.sqrt(norm_squared(r))
         d_vec = r/d
@@ -235,7 +236,7 @@ class AnalyticCyclotronField:
         
     def calc_polar_angle(self, r_norm):
 
-        return np.arccos(np.dot(r_norm, self.electronsim.B_direction))
+        return np.arccos(np.dot(r_norm, self.e_simulation.B_direction))
         
     def get_field_parameters(self, p):
         """
@@ -265,9 +266,9 @@ class AnalyticCyclotronField:
         d_vec, d = self.calc_d_vec_and_abs(p)
         theta = self.calc_polar_angle(d_vec)
         
-        power = _get_analytic_power(self.electronsim.E_kin, 
-                                self.electronsim.pitch, 
-                                self.electronsim.B_vals, 
+        power = _get_analytic_power(self.e_simulation.E_kin, 
+                                self.e_simulation.pitch, 
+                                self.e_simulation.B_vals, 
                                 theta, self.n_harmonic)
         
         pol_x, pol_y = _get_polarization_vectors(d_vec, theta)

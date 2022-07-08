@@ -17,7 +17,7 @@ import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-from .cresphysics import get_relativistic_velocity
+from .cyclotronphysics import get_relativistic_velocity
 
 
 def get_x(R, phi):
