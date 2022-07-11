@@ -12,17 +12,27 @@ __all__ = []
 import numpy as np
 
 
-def calculate_received_power(P_transmitted, D_transmitter, w_transmitter, D_receiver, d_squared):
+def calculate_received_power(P_transmitted, w_transmitter, D_receiver, d_squared):
     """
     Friis transmission equation
+    P_transmitted is power of transmitting antenna*gain of transmitter
     """
     P_received = np.empty(shape=P_transmitted.shape)
-    P_received = P_transmitted*D_transmitter*D_receiver*np.pi*speed_of_light**2/d_squared
+    P_received = P_transmitted*D_receiver*speed_of_light**2/(4*d_squared)
     
     ind = w_transmitter != 0
     P_received[ind] /= w_transmitter[ind]**2
     P_received[np.invert(ind)] = 0
     return P_received
+    
+    
+def polarization_mismatch_gain(pol_x, pol_y, delta_phase, pol_antenna):
+    
+    a = np.dot(pol_antenna, pol_x)**2
+    b = np.dot(pol_antenna, pol_y)**2
+    ab = 2*np.cos(delta_phase)*np.dot(pol_antenna, pol_x)*np.dot(pol_antenna, pol_y)
+    
+    return a + b + ab
     
     
 class AntennaArray:
