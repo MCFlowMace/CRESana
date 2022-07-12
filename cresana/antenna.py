@@ -11,6 +11,8 @@ __all__ = []
 
 import numpy as np
 
+from .utility import normalize
+
 
 def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared):
     """
@@ -35,6 +37,7 @@ class AntennaArray:
         self.polarizations = polarizations
         self.resistance = resistance
         self.transfer_function = transfer_function
+        self.cross_polarizations = normalize(np.cross(normals, polarizations))
         
     def power_to_voltage(self, P):
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
@@ -97,7 +100,7 @@ class AntennaArray:
         
         #set polarization such that at position = (R, 0, 0) -> pol = (0, -1, 0)
         polarizations = np.zeros_like(positions)
-        polarizations[:, 0] = -positions[:,1]/R
+        polarizations[:, 0] = positions[:,1]/R
         polarizations[:, 1] = -positions[:,0]/R
 
         instance = cls(positions, normals, polarizations, resistance)
