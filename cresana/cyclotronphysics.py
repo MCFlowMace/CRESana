@@ -34,6 +34,9 @@ def get_beta(E_kin):
     v_0 = get_relativistic_velocity(E_kin)
     return v_0/speed_of_light
     
+    
+def get_wavelength(w):
+    return 2*np.pi*speed_of_light/w
 
 def get_omega_cyclotron(B, E_kin):
     '''
