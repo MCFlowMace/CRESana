@@ -11,7 +11,7 @@ __all__ = []
 
 import numpy as np
 
-from .utility import normalize
+from .utility import normalize, project_on_plane, angle_with_orientation
 
 
 def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared):
@@ -57,6 +57,19 @@ class AntennaArray:
     def get_directional_gain(self, d_vec):
         
         return 1.
+        
+    def get_gain_angles(self, d_vec):
+        
+        r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
+        r_project_cross = project_on_plane(-d_vec, self.polarizations)
+        
+        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
+                                       np.expand_dims(self.cross_polarizations, 1))
+
+        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
+                                       np.expand_dims(self.polarizations, 1))
+        
+        return theta, phi
         
     def get_tf_gain(self, w_receiver):
         
