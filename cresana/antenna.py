@@ -27,16 +27,36 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
     P_received[np.invert(ind)] = 0
     return P_received
     
+
+def slot_directivity_factor(theta, phi):
+    
+    theta_factor = np.zeros_like(theta)
+    
+    nonzero = (theta != 0.0)&(np.abs(theta) != np.pi)
+    
+    print(nonzero)
+    
+    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta[nonzero]))/np.sin(theta[nonzero])
+    phi_factor = np.cos(phi)
+    
+    return theta_factor*phi_factor
+    
+    
+def isotropic_directivity_factor(theta, phi):
+    
+    return 1.0
+    
     
 class AntennaArray:
 
-    def __init__(self, positions, normals, polarizations, transfer_function, resistance=50):
+    def __init__(self, positions, normals, polarizations, transfer_function, directivity_function, resistance=50):
 
         self.positions = positions
         self.normals = normals
         self.polarizations = polarizations
         self.resistance = resistance
         self.transfer_function = transfer_function
+        self.directivity_function = directivity_function
         self.cross_polarizations = normalize(np.cross(normals, polarizations))
         
     def power_to_voltage(self, P):
@@ -56,7 +76,9 @@ class AntennaArray:
         
     def get_directional_gain(self, d_vec):
         
-        return 1.
+        theta, phi = self.get_gain_angles(d_vec)
+        
+        return self.directivity_function(theta, phi)**2
         
     def get_gain_angles(self, d_vec):
         
@@ -94,7 +116,8 @@ class AntennaArray:
         return self.power_to_voltage(P_received)
         
     @classmethod
-    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, resistance=50):
+    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 
+                                transfer_function, directivity_function, resistance=50):
 
         z = np.linspace(z_min, z_max, n_rings)
 
@@ -116,7 +139,7 @@ class AntennaArray:
         polarizations[:, 0] = positions[:,1]/R
         polarizations[:, 1] = -positions[:,0]/R
 
-        instance = cls(positions, normals, polarizations, resistance)
+        instance = cls(positions, normals, polarizations, transfer_function, directivity_function, resistance)
 
         return instance
 
