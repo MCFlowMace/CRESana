@@ -30,13 +30,13 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
 
 def slot_directivity_factor(theta, phi):
     
-    theta_factor = np.zeros_like(theta)
+    theta_mod = np.pi/2 - theta
     
-    nonzero = (theta != 0.0)&(np.abs(theta) != np.pi)
+    theta_factor = np.zeros_like(theta_mod)
     
-    print(nonzero)
+    nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
     
-    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta[nonzero]))/np.sin(theta[nonzero])
+    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
     phi_factor = np.cos(phi)
     
     return theta_factor*phi_factor
