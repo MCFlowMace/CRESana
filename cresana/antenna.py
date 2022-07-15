@@ -30,11 +30,6 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
     P_received[ind] /= w_transmitter[ind]**2
     P_received[np.invert(ind)] = 0
     return P_received
-    
-    
-def isotropic_directivity_factor(theta, phi):
-    
-    return 1.0
 
 
 class Antenna(ABC):
@@ -77,7 +72,30 @@ class Antenna(ABC):
     def sum_elements(self, signals):
         pass
         
+
+class IsotropicAntenna(Antenna):
     
+    def __init__(self, resistance):
+        
+        Antenna.__init__(resistance)
+        
+    def transfer_function(self, w_receiver):
+        
+        eta = 377 #impedance of free space
+        
+        tf_abs = np.sqrt(self.resistance*speed_of_light**2*np.pi/(eta*w_receiver**2))
+        
+        return tf_abs + 0.0j
+        
+    def directivity_factor(self, theta, phi):
+        return 1.0
+        
+    def position_elements(self, positions):
+        return positions
+        
+    def sum_elements(self, signals):
+        return signals
+        
     
 class SlottedWaveguideAntenna(Antenna):
     
