@@ -9,10 +9,13 @@ Date: August 11, 2021
 
 __all__ = []
 
+from abc import ABC, abstractmethod
+
 import numpy as np
 from scipy.interpolate import interp1d
 
 from .utility import normalize, project_on_plane, angle_with_orientation
+from .physicsconstants import speed_of_light
 
 
 def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared):
@@ -32,15 +35,58 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
 def isotropic_directivity_factor(theta, phi):
     
     return 1.0
+
+
+class Antenna(ABC):
+    
+    def __init__(self, resistance):
+        
+        self.resistance = resistance
+        
+    def get_tf_gain(self, w_receiver):
+        
+        eta = 377 #impedance of free space
+        
+        tf = np.abs(self.transfer_function(w_receiver))
+        
+        return tf**2*eta*w_receiver**2/(np.pi*speed_of_light**2*self.resistance)
+        
+    def get_directivity_gain(self, theta, phi):
+        return self.directivity_factor(theta, phi)**2
+        
+    def get_gain(self, theta, phi, w_receiver):
+        return self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
+        
+    def power_to_voltage(self, P):
+        #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
+        return np.sqrt(2*P*self.resistance)
+        
+    @abstractmethod
+    def transfer_function(self, w_receiver):
+        pass
+        
+    @abstractmethod
+    def directivity_factor(self, theta, phi):
+        pass
+        
+    @abstractmethod
+    def position_elements(self, positions):
+        pass
+        
+    @abstractmethod
+    def sum_elements(self, signals):
+        pass
+        
     
     
-class SlottedWaveguideAntenna:
+class SlottedWaveguideAntenna(Antenna):
     
     def __init__(self, n_slots, resistance, tf_file_name, slot_offset=7.75e-3):
         
+        Antenna.__init__(resistance)
+        
         self.n_slots = n_slots
         self.slot_offset = slot_offset
-        self.resistance = resistance
         self._create_tf(tf_file_name)
         
     
@@ -54,7 +100,23 @@ class SlottedWaveguideAntenna:
         inter_re = interp1d(tf_f, tf_val_re, kind='cubic')
         inter_im = interp1d(tf_f, tf_val_im, kind='cubic')
         
-        self.transfer_function = lambda w: inter_re(w) + 1.0j*inter_im(w)
+        self.interp_tf = lambda w: inter_re(w) + 1.0j*inter_im(w)
+        
+    def transfer_function(self, w_receiver):
+        return self.interp_tf(w_receiver)
+        
+    def directivity_factor(self, theta, phi):
+    
+        theta_mod = np.pi/2 - theta
+        
+        theta_factor = np.zeros_like(theta_mod)
+        
+        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
+        
+        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
+        phi_factor = np.cos(phi)
+        
+        return theta_factor*phi_factor
         
     def position_elements(self, positions):
         """
@@ -77,19 +139,6 @@ class SlottedWaveguideAntenna:
         signal_reshaped = signals.reshape((self.n_slots, -1, signals.shape[-1]))
         
         return np.sum(signal_reshaped, axis=0)
-        
-    def slot_directivity_factor(self, theta, phi):
-    
-        theta_mod = np.pi/2 - theta
-        
-        theta_factor = np.zeros_like(theta_mod)
-        
-        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
-        
-        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
-        phi_factor = np.cos(phi)
-        
-        return theta_factor*phi_factor
     
     
 class AntennaArray:
@@ -103,10 +152,6 @@ class AntennaArray:
         self.transfer_function = transfer_function
         self.directivity_function = directivity_function
         self.cross_polarizations = normalize(np.cross(normals, polarizations))
-        
-    def power_to_voltage(self, P):
-        #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
-        return np.sqrt(2*P*self.resistance)
                                  
     def get_phase(self, phase, w_receiver):
         
@@ -141,22 +186,14 @@ class AntennaArray:
         
         return theta, phi
         
-    def get_tf_gain(self, w_receiver):
-        
-        eta = 377 #impedance of free space
-        
-        tf = np.abs(self.transfer_function(w_receiver))
-        
-        return tf**2*eta*w_receiver**2/(np.pi*speed_of_light**2*self.resistance)
-        
+
     def get_receiver_gain(self, pol_x, pol_y, d_vec, w_receiver):
+        
         polarization_mismatch_gain = self.get_polarization_mismatch_gain(pol_x, pol_y, np.pi/2)
         directional_gain = self.get_directional_gain(d_vec)
         tf_gain = self.get_tf_gain(w_receiver)
-        #IQ_receiver_gain = 1 # = A_LO**2 with A_LO=1
-        LPF_gain = 0.5 #LPF after LO cuts half the spectrum
         
-        return polarization_mismatch_gain*directional_gain*tf_gain*LPF_gain
+        return polarization_mismatch_gain*directional_gain*tf_gain
         
     def get_amplitude(self, dist, P_transmitted, w_transmitter, w_receiver, pol_x, pol_y, d_vec, d):
         G_receiver = self.get_receiver_gain()
