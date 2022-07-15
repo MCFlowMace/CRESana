@@ -66,7 +66,7 @@ class Antenna(ABC):
         
         return phase + angle
         
-    def get_voltage(self, received_power, phase):
+    def get_voltage(self, copolar_power, phase):
         
         U0 = self.power_to_amplitude(copolar_power)
         element_signals = get_signal(U0, phase)
@@ -212,7 +212,7 @@ class AntennaArray:
         theta, phi = self.get_directivity_angles(d_vec)
         antenna_gain = self.antenna.get_gain(theta, phi, w_receiver)
         
-        polarization_mismatch = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2)
+        polarization_mismatch = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2) # for cyclotron radiation delta_phase = np.pi/2
         
         return polarization_mismatch*antenna_gain
         
@@ -229,7 +229,7 @@ class AntennaArray:
         
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 
-                                transfer_function, directivity_function, resistance=50):
+                                antenna):
 
         z = np.linspace(z_min, z_max, n_rings)
 
@@ -251,7 +251,7 @@ class AntennaArray:
         polarizations[:, 0] = positions[:,1]/R
         polarizations[:, 1] = -positions[:,0]/R
 
-        instance = cls(positions, normals, polarizations, transfer_function, directivity_function, resistance)
+        instance = cls(positions, normals, polarizations, antenna)
 
         return instance
 
