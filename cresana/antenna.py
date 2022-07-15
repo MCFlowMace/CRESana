@@ -10,6 +10,7 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 from .utility import normalize, project_on_plane, angle_with_orientation
 
@@ -27,24 +28,68 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
     P_received[np.invert(ind)] = 0
     return P_received
     
-
-def slot_directivity_factor(theta, phi):
-    
-    theta_mod = np.pi/2 - theta
-    
-    theta_factor = np.zeros_like(theta_mod)
-    
-    nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
-    
-    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
-    phi_factor = np.cos(phi)
-    
-    return theta_factor*phi_factor
-    
     
 def isotropic_directivity_factor(theta, phi):
     
     return 1.0
+    
+    
+class SlottedWaveguideAntenna:
+    
+    def __init__(self, n_slots, resistance, tf_file_name, slot_offset=7.75e-3):
+        
+        self.n_slots = n_slots
+        self.slot_offset = slot_offset
+        self.resistance = resistance
+        self._create_tf(tf_file_name)
+        
+    
+    def _create_tf(self, tf_file_name):
+        
+        tf_data = np.loadtxt(tf_file_name)*2*np.pi*1.0e9
+        tf_f = tf_data[:,0]
+        tf_val_re = tf_data[:,1]
+        tf_val_im = tf_data[:,2]
+        
+        inter_re = interp1d(tf_f, tf_val_re, kind='cubic')
+        inter_im = interp1d(tf_f, tf_val_im, kind='cubic')
+        
+        self.transfer_function = lambda w: inter_re(w) + 1.0j*inter_im(w)
+        
+    def position_elements(self, positions):
+        """
+        Positions waveguide slots for given positions of Waveguide antennas
+        """
+        offset = np.zeros_like(positions)
+        offset[:,2] = self.slot_offset
+        
+        n_offset = np.arange(self.n_slots)-self.n_slots/2 + 0.5
+        
+        offset_positions = n_offset*np.expand_dims(offset,-1)
+        offset_positions_reshaped = np.einsum('ijk->kij', offset_positions).reshape((-1, 3))
+        
+        element_positions = np.tile(positions, (self.n_slots,1))
+        
+        return element_positions + offset_positions_reshaped
+        
+    def sum_elements(self, signals):
+        
+        signal_reshaped = signals.reshape((self.n_slots, -1, signals.shape[-1]))
+        
+        return np.sum(signal_reshaped, axis=0)
+        
+    def slot_directivity_factor(self, theta, phi):
+    
+        theta_mod = np.pi/2 - theta
+        
+        theta_factor = np.zeros_like(theta_mod)
+        
+        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
+        
+        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
+        phi_factor = np.cos(phi)
+        
+        return theta_factor*phi_factor
     
     
 class AntennaArray:
@@ -63,8 +108,11 @@ class AntennaArray:
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
         return np.sqrt(2*P*self.resistance)
                                  
-    def get_phase_shift(self):
-        return 
+    def get_phase(self, phase, w_receiver):
+        
+        angle = np.angle(self.transfer_function(w_receiver))
+        
+        return phase + angle
         
     def get_polarization_mismatch_gain(self, pol_x, pol_y, delta_phase):
     
