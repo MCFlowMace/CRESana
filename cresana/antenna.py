@@ -32,6 +32,10 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
     return P_received
 
 
+def get_signal(A, phase):
+    return A*np.exp(1.0j*phase)
+    
+
 class Antenna(ABC):
     
     def __init__(self, resistance):
@@ -52,9 +56,22 @@ class Antenna(ABC):
     def get_gain(self, theta, phi, w_receiver):
         return self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
         
-    def power_to_voltage(self, P):
+    def power_to_amplitude(self, P):
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
         return np.sqrt(2*P*self.resistance)
+        
+    def get_phase(self, phase, w_receiver):
+        
+        angle = np.angle(self.transfer_function(w_receiver))
+        
+        return phase + angle
+        
+    def get_voltage(self, received_power, phase):
+        
+        U0 = self.power_to_amplitude(copolar_power)
+        element_signals = get_signal(U0, phase)
+        
+        return self.sum_elements(element_signals)
         
     @abstractmethod
     def transfer_function(self, w_receiver):
@@ -161,37 +178,15 @@ class SlottedWaveguideAntenna(Antenna):
     
 class AntennaArray:
 
-    def __init__(self, positions, normals, polarizations, transfer_function, directivity_function, resistance=50):
+    def __init__(self, positions, normals, polarizations, antenna):
 
         self.positions = positions
         self.normals = normals
         self.polarizations = polarizations
-        self.resistance = resistance
-        self.transfer_function = transfer_function
-        self.directivity_function = directivity_function
         self.cross_polarizations = normalize(np.cross(normals, polarizations))
-                                 
-    def get_phase(self, phase, w_receiver):
+        self.antenna = antenna
         
-        angle = np.angle(self.transfer_function(w_receiver))
-        
-        return phase + angle
-        
-    def get_polarization_mismatch_gain(self, pol_x, pol_y, delta_phase):
-    
-        a = np.einsum('ik,ijk->ij', self.polarizations, pol_x) #(dot(pol_x, polarizations))
-        b = np.einsum('ik,ijk->ij', self.polarizations, pol_y)
-        ab = 2*np.cos(delta_phase)*a*b
-        
-        return a**2 + b**2 + ab
-        
-    def get_directional_gain(self, d_vec):
-        
-        theta, phi = self.get_gain_angles(d_vec)
-        
-        return self.directivity_function(theta, phi)**2
-        
-    def get_gain_angles(self, d_vec):
+    def get_directivity_angles(self, d_vec):
         
         r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
         r_project_cross = project_on_plane(-d_vec, self.polarizations)
@@ -204,19 +199,33 @@ class AntennaArray:
         
         return theta, phi
         
+    def get_polarization_mismatch(self, pol_x, pol_y, delta_phase):
+    
+        a = np.einsum('ik,ijk->ij', self.polarizations, pol_x) #(dot(pol_x, polarizations))
+        b = np.einsum('ik,ijk->ij', self.polarizations, pol_y)
+        ab = 2*np.cos(delta_phase)*a*b
+        
+        return a**2 + b**2 + ab
 
     def get_receiver_gain(self, pol_x, pol_y, d_vec, w_receiver):
+
+        theta, phi = self.get_directivity_angles(d_vec)
+        antenna_gain = self.antenna.get_gain(theta, phi, w_receiver)
         
-        polarization_mismatch_gain = self.get_polarization_mismatch_gain(pol_x, pol_y, np.pi/2)
-        directional_gain = self.get_directional_gain(d_vec)
-        tf_gain = self.get_tf_gain(w_receiver)
+        polarization_mismatch = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2)
         
-        return polarization_mismatch_gain*directional_gain*tf_gain
+        return polarization_mismatch*antenna_gain
         
-    def get_amplitude(self, dist, P_transmitted, w_transmitter, w_receiver, pol_x, pol_y, d_vec, d):
-        G_receiver = self.get_receiver_gain()
+    def get_received_power(self, P_transmitted, w_transmitter, w_receiver, pol_x, pol_y, d_vec, d):
+        
+        G_receiver = self.get_receiver_gain(pol_x, pol_y, d_vec, w_receiver)
         P_received = calculate_received_power(P_transmitted, w_transmitter, G_receiver, d**2)
-        return self.power_to_voltage(P_received)
+        
+        return P_received
+        
+    def get_voltage(self, received_power, phase):
+        
+        return self.antenna.get_voltage(received_power, phase)
         
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 

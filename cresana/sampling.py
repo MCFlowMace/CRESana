@@ -61,10 +61,6 @@ class Sampler:
     def sr(self, val):
         self._sr = val
         self._dt = 1/val
-        
-
-def get_signal(A, phase):
-    return A*np.exp(1.0j*phase)
     
 
 def get_cyclotron_phase(t, w_avg, w_m):
