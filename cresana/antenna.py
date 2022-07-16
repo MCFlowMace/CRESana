@@ -118,7 +118,7 @@ class SlottedWaveguideAntenna(Antenna):
     
     def __init__(self, n_slots, resistance, tf_file_name, slot_offset=7.75e-3):
         
-        Antenna.__init__(resistance)
+        Antenna.__init__(self, resistance)
         
         self.n_slots = n_slots
         self.slot_offset = slot_offset
@@ -127,8 +127,9 @@ class SlottedWaveguideAntenna(Antenna):
     
     def _create_tf(self, tf_file_name):
         
-        tf_data = np.loadtxt(tf_file_name)*2*np.pi*1.0e9
-        tf_f = tf_data[:,0]
+        tf_data = np.loadtxt(tf_file_name)
+        
+        tf_f = tf_data[:,0]*2*np.pi*1.0e9
         tf_val_re = tf_data[:,1]
         tf_val_im = tf_data[:,2]
         
