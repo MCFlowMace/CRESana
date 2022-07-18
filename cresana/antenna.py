@@ -258,6 +258,9 @@ class AntennaArray:
         yy, _ = np.meshgrid(y, z)
 
         positions = np.column_stack((xx.flatten(), yy.flatten(), zz.flatten()))
+        
+        positions = antenna.position_elements(positions)
+        
         normals = np.zeros_like(positions)
         
         normals[:,0] = -positions[:,0]/R
