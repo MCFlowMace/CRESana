@@ -116,20 +116,21 @@ class IsotropicAntenna(Antenna):
     
 class SlottedWaveguideAntenna(Antenna):
     
-    def __init__(self, n_slots, tf_file_name, slot_offset=7.75e-3):
+    def __init__(self, n_slots, tf_file_name, slot_offset=7.75e-3, 
+                    tf_frequency_unit=1.0e9):
         
         Antenna.__init__(self)
         
         self.n_slots = n_slots
         self.slot_offset = slot_offset
-        self._create_tf(tf_file_name)
+        self._create_tf(tf_file_name, tf_frequency_unit)
         
     
-    def _create_tf(self, tf_file_name, frequency_unit_multiplicator=1.0e9):
+    def _create_tf(self, tf_file_name, tf_frequency_unit=1.0e9):
         
         tf_data = np.loadtxt(tf_file_name)
         
-        tf_f = tf_data[:,0]*2*np.pi*frequency_unit_multiplicator
+        tf_f = tf_data[:,0]*2*np.pi*frequency_unit
         tf_val_re = tf_data[:,1]
         tf_val_im = tf_data[:,2]
         
