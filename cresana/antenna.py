@@ -108,7 +108,7 @@ class IsotropicAntenna(Antenna):
         return tf_abs + 0.0j
         
     def directivity_factor(self, theta, phi):
-        return 1.0
+        return np.ones_like(theta)
         
     def position_elements(self, positions):
         return positions
