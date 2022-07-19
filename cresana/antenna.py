@@ -35,20 +35,19 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
 def get_signal(A, phase):
     return A*np.exp(1.0j*phase)
     
+standard_impedance = 50.
+free_space_impedance = 377.
 
 class Antenna(ABC):
     
-    def __init__(self, resistance):
-        
-        self.resistance = resistance
+    def __init__(self):
+        pass
         
     def get_tf_gain(self, w_receiver):
         
-        eta = 377 #impedance of free space
-        
         tf = np.abs(self.transfer_function(w_receiver))
         
-        return tf**2*eta*w_receiver**2/(np.pi*speed_of_light**2*self.resistance)
+        return tf**2*free_space_impedance*w_receiver**2/(np.pi*speed_of_light**2*standard_impedance)
         
     def get_directivity_gain(self, theta, phi):
         return self.directivity_factor(theta, phi)**2
@@ -58,7 +57,7 @@ class Antenna(ABC):
         
     def power_to_amplitude(self, P):
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
-        return np.sqrt(2*P*self.resistance)
+        return np.sqrt(2*P*standard_impedance)
         
     def get_phase(self, phase, w_receiver):
         
@@ -95,15 +94,13 @@ class Antenna(ABC):
 
 class IsotropicAntenna(Antenna):
     
-    def __init__(self, resistance):
+    def __init__(self):
         
-        Antenna.__init__(resistance)
+        Antenna.__init__()
         
     def transfer_function(self, w_receiver):
         
-        eta = 377 #impedance of free space
-        
-        tf_abs = np.sqrt(self.resistance*speed_of_light**2*np.pi/(eta*w_receiver**2))
+        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
         
         return tf_abs + 0.0j
         
@@ -119,9 +116,9 @@ class IsotropicAntenna(Antenna):
     
 class SlottedWaveguideAntenna(Antenna):
     
-    def __init__(self, n_slots, resistance, tf_file_name, slot_offset=7.75e-3):
+    def __init__(self, n_slots, tf_file_name, slot_offset=7.75e-3):
         
-        Antenna.__init__(self, resistance)
+        Antenna.__init__(self)
         
         self.n_slots = n_slots
         self.slot_offset = slot_offset
