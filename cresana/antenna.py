@@ -125,11 +125,11 @@ class SlottedWaveguideAntenna(Antenna):
         self._create_tf(tf_file_name)
         
     
-    def _create_tf(self, tf_file_name):
+    def _create_tf(self, tf_file_name, frequency_unit_multiplicator=1.0e9):
         
         tf_data = np.loadtxt(tf_file_name)
         
-        tf_f = tf_data[:,0]*2*np.pi*1.0e9
+        tf_f = tf_data[:,0]*2*np.pi*frequency_unit_multiplicator
         tf_val_re = tf_data[:,1]
         tf_val_im = tf_data[:,2]
         
