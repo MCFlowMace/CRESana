@@ -53,11 +53,13 @@ class Antenna(ABC):
         return self.directivity_factor(theta, phi)**2
         
     def get_gain(self, theta, phi, w_receiver):
-        return self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
+        g = self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
+        return g
         
     def power_to_amplitude(self, P):
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
         return np.sqrt(2*P*standard_impedance)
+        #return np.sqrt(P*standard_impedance)
         
     def get_phase(self, phase, w_receiver):
         
@@ -96,7 +98,7 @@ class IsotropicAntenna(Antenna):
     
     def __init__(self):
         
-        Antenna.__init__()
+        Antenna.__init__(self)
         
     def transfer_function(self, w_receiver):
         
@@ -130,7 +132,7 @@ class SlottedWaveguideAntenna(Antenna):
         
         tf_data = np.loadtxt(tf_file_name)
         
-        tf_f = tf_data[:,0]*2*np.pi*frequency_unit
+        tf_f = tf_data[:,0]*2*np.pi*tf_frequency_unit
         tf_val_re = tf_data[:,1]
         tf_val_im = tf_data[:,2]
         
