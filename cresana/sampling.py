@@ -50,6 +50,24 @@ class Clock:
         self._f = val
         self._dt = 1/val
     
+class IQSampler:
+    
+    def __init__(self, f_LO, phase=np.pi/2, A_LO=1.0):
+        
+        self.w_LO = 2*np.pi*f_LO
+        self.phase = phase
+        self.A_LO = A_LO
+        
+    def __call__(self, simulation):
+        
+        field_phase -= self.w_LO*t
+        
+        samples = simulation.array.get_voltage(received_copolar_field_power, 
+                                                field_phase, 
+                                                self.w_LO, d_vec, 
+                                                real_signal=False)
+                                                
+        return self.A_LO*samples*np.exp(1.0j*self.phase)
 
 def get_cyclotron_phase(t, w_avg, w_m):
     return t*(w_avg - w_m)
