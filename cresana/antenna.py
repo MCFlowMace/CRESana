@@ -32,8 +32,15 @@ def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared
     return P_received
 
 
-def get_signal(A, phase):
-    return A*np.exp(1.0j*phase)
+#voltage signal model is A*cos(phi) = A/2*(e^iphi + e^-iphi)
+def get_signal(A, phase, real=False):
+    signal = np.exp(1.0j*phase)
+    
+    if real:
+        signal = signal + np.exp(-1.0j*phase)
+        
+    return A*0.5*signal
+    
     
 standard_impedance = 50.
 free_space_impedance = 377.
@@ -58,8 +65,9 @@ class Antenna(ABC):
         
     def power_to_amplitude(self, P):
         #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
-        return np.sqrt(2*P*standard_impedance)
-        #return np.sqrt(P*standard_impedance)
+        # u_rms = u0 for complex wave
+        u0 =  np.sqrt(2*P*standard_impedance)
+        return u0
         
     def get_phase(self, phase, w_receiver):
         
@@ -68,12 +76,12 @@ class Antenna(ABC):
         return phase + angle
         
     def get_voltage(self, copolar_power, field_phase,
-                    theta, phi, w_receiver):
+                    theta, phi, w_receiver, real_signal=False):
                         
         gain = self.get_gain(theta, phi, w_receiver)
         U0 = self.power_to_amplitude(copolar_power*gain)
         phase0 = self.get_phase(field_phase, w_receiver)
-        element_signals = get_signal(U0, phase0)
+        element_signals = get_signal(U0, phase0, real=real_signal)
         
         return self.sum_elements(element_signals)
         
@@ -236,13 +244,13 @@ class AntennaArray:
         return P_received
         
     def get_voltage(self, received_copolar_field_power, field_phase, 
-                    w_receiver, d_vec):
+                    w_receiver, d_vec, real_signal=False):
                         
         theta, phi = self.get_directivity_angles(d_vec)
         
         return self.antenna.get_voltage(received_copolar_field_power, 
                                         field_phase, theta, phi,
-                                        w_receiver)
+                                        w_receiver, real_signal=real_signal)
         
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 
