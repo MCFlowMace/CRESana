@@ -18,39 +18,27 @@ from .cyclotronphysics import get_radiated_power, get_omega_cyclotron_time_depen
 from .electronsim import simulate_electron
 
 
-class Sampler:
+class Clock:
+    
+    def __init__(self, frequency):
 
-    def __init__(self, sr, N=8192):
-
-        self._sr = sr
+        self._f = frequency
         self._dt = 1/sr
-        self._N = N
         
     def _get_sample_times(self, N, t_0):
         return np.arange(N)*self._dt + t_0
         
-    def __call__(self, N=None, t_0=0):
-        n_samples = N
-        if n_samples==None:
-            n_samples = self._N
+    def __call__(self, N, t_0=0.):
 
-        return self._get_sample_times(n_samples, t_0)
-        
-    @property
-    def N(self):
-        return self._N
+        return self._get_sample_times(N, t_0)
         
     @property
     def dt(self):
         return self._dt
         
     @property
-    def sr(self):
-        return self._sr
-        
-    @N.setter
-    def N(self, val):
-        self._N = val
+    def f(self):
+        return self._f
         
     @dt.setter
     def dt(self, val):
@@ -58,8 +46,8 @@ class Sampler:
         self._sr = 1/val
         
     @sr.setter
-    def sr(self, val):
-        self._sr = val
+    def f(self, val):
+        self._f = val
         self._dt = 1/val
     
 
