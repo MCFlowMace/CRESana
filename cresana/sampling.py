@@ -49,36 +49,39 @@ class Clock:
     def f(self, val):
         self._f = val
         self._dt = 1/val
-    
-class IQSampler:
-    
-    def __init__(self, f_LO, phase=np.pi/2, A_LO=1.0):
         
+    
+class IQReceiver:
+    
+    def __init__(self, antenna_array, f_LO, phase=np.pi/2, A_LO=1.0):
+        
+        self.antenna_array = antenna_array
         self.w_LO = 2*np.pi*f_LO
         self.phase = phase
         self.A_LO = A_LO
         
-    def __call__(self, simulation):
+    def __call__(self, t, received_copolar_field_power, 
+                    field_phase, d_vec):
         
         field_phase -= self.w_LO*t
         
-        samples = simulation.array.get_voltage(received_copolar_field_power, 
+        samples = self.antenna_array.get_voltage(received_copolar_field_power, 
                                                 field_phase, 
                                                 self.w_LO, d_vec, 
                                                 real_signal=False)
                                                 
         return self.A_LO*samples*np.exp(1.0j*self.phase)
 
-def get_cyclotron_phase(t, w_avg, w_m):
-    return t*(w_avg - w_m)
+#~ def get_cyclotron_phase(t, w_avg, w_m):
+    #~ return t*(w_avg - w_m)
     
 
-def get_energy_loss_phase(t, slope):
-    return 0.5*slope*t**2
+#~ def get_energy_loss_phase(t, slope):
+    #~ return 0.5*slope*t**2
     
 
-def get_phase_shift(d, w):
-    return w*d/speed_of_light
+#~ def get_phase_shift(d, w):
+    #~ return w*d/speed_of_light
     
 
 # ~ def get_distance(pos_e, pos_antenna):
