@@ -229,19 +229,7 @@ class AnalyticCyclotronField:
         
         return instance
         
-    def calc_d_vec_and_abs(self, pos):
-        r = np.expand_dims(pos, 1) - self.e_simulation.coords
-        
-        d = np.sqrt(norm_squared(r))
-        d_vec = r/d
-        
-        return d_vec, d
-        
-    def calc_polar_angle(self, r_norm):
-
-        return np.arccos(np.dot(r_norm, self.e_simulation.B_direction))
-        
-    def get_field_parameters(self, p):
+    def get_field_parameters(self, d_vec, d, theta):
         """
         Get the parameters that analytically describe the field at point p.
         
@@ -266,8 +254,8 @@ class AnalyticCyclotronField:
             axis are the points p and third axis are the coordinates
         """
         
-        d_vec, d = self.calc_d_vec_and_abs(p)
-        theta = self.calc_polar_angle(d_vec)
+      #  d_vec, d = self.calc_d_vec_and_abs(p)
+      #  theta = self.calc_polar_angle(d_vec)
         
         power = _get_analytic_power(self.e_simulation.E_kin, 
                                 self.e_simulation.pitch, 
@@ -276,4 +264,4 @@ class AnalyticCyclotronField:
         
         pol_x, pol_y = _get_polarization_vectors(d_vec, theta)
         
-        return self.w, power, pol_x, pol_y, d_vec, d, theta
+        return self.w, power, pol_x, pol_y#, d_vec, d, theta
