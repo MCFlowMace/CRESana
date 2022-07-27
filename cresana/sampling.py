@@ -53,19 +53,18 @@ class Clock:
     
 class IQReceiver:
     
-    def __init__(self, antenna_array, f_LO, phase=np.pi/2, A_LO=1.0):
+    def __init__(self, f_LO, phase=np.pi/2, A_LO=1.0):
         
-        self.antenna_array = antenna_array
         self.w_LO = 2*np.pi*f_LO
         self.phase = phase
         self.A_LO = A_LO
         
-    def __call__(self, t, received_copolar_field_power, 
+    def __call__(self, t, antenna_array, received_copolar_field_power, 
                     field_phase, d_vec):
         
         field_phase -= self.w_LO*t
         
-        samples = self.antenna_array.get_voltage(received_copolar_field_power, 
+        samples = antenna_array.get_voltage(received_copolar_field_power, 
                                                 field_phase, 
                                                 self.w_LO, d_vec, 
                                                 real_signal=False)
@@ -107,7 +106,7 @@ def find_nearest_samples2d(t1, t2):
         t[i], ind[i] = find_nearest_samples(t1[i], t2)
         
     return t, ind
-
+        
 
 class SignalModel:
 
