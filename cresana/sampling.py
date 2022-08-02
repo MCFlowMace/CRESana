@@ -15,8 +15,9 @@ import matplotlib.pyplot as plt
 
 from .physicsconstants import speed_of_light, ev
 from .cyclotronphysics import get_radiated_power, get_omega_cyclotron_time_dependent
-from .electronsim import simulate_electron
+from .electronsim import simulate_electron, ElectronSim
 from .cyclotronphysics import AnalyticCyclotronField
+from .utility import norm_squared
 
 
 class Clock:
@@ -24,7 +25,7 @@ class Clock:
     def __init__(self, frequency):
 
         self._f = frequency
-        self._dt = 1/sr
+        self._dt = 1/frequency
         
     def _get_sample_times(self, N, t_0):
         return np.arange(N)*self._dt + t_0
@@ -123,6 +124,7 @@ class Simulation:
         return t, coords
     
     def get_retarded_time(self, t, d):
+
         t_travel = d/speed_of_light
         t_ret = t - t_travel
         
@@ -150,19 +152,21 @@ class Simulation:
         t_ret_correct, sample_ind_correct = find_nearest_samples2d(t_retarded, electron_sim.t)
         B_sample = electron_sim.B_vals[sample_ind_correct]
         pitch = electron_sim.pitch[sample_ind_correct]
-        E_kin = elctron_sim.E_kin[sample_ind_correct]
+        E_kin = electron_sim.E_kin[sample_ind_correct]
         
         self.enforce_causality(t_retarded, t_ret_correct, B_sample, pitch)
         
         return t_ret_correct, B_sample, pitch, E_kin
         
     def calc_d_vec_and_abs(self, coords):
+        
         r = np.expand_dims(self.antenna_array.positions, 1) - coords
         
         d = np.sqrt(norm_squared(r))
+
         d_vec = r/d
         
-        return d_vec, d
+        return d_vec, d[...,0]
         
     def calc_polar_angle(self, r_norm, B_direction):
 
@@ -173,9 +177,10 @@ class Simulation:
         t, coords = self.get_sample_time_trajectory(N, electron_sim)
         
         d_vec, d = self.calc_d_vec_and_abs(coords)
-        theta = self.calc_polar_angle(d_vec, electronsim.B_direction)
+        theta = self.calc_polar_angle(d_vec, electron_sim.B_direction)
         
-        t_ret_initial = self.get_retarded_time(t, coords)
+        t_ret_initial = self.get_retarded_time(t, d)
+
 
         t_ret, B_ret, pitch_ret, E_kin_ret = self.get_sampled_model_parameters(electron_sim, t_ret_initial)
 
@@ -188,7 +193,7 @@ class Simulation:
         w, P_transmitted, pol_x, pol_y = cyclotron_field.get_field_parameters(d_vec, d, theta)
                                                 
         received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
-        field_phase = get_cyclotron_phase_int(w, t_ret_correct)
+        field_phase = get_cyclotron_phase_int(w, t_ret)
         
         signal = self.receiver(t, self.antenna_array, received_copolar_field_power, 
                                 field_phase, d_vec)

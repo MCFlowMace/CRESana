@@ -239,7 +239,7 @@ class AntennaArray:
         
         polarization_mismatch_gain = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2)
         
-        P_received = calculate_received_power(P_transmitted, w_transmitter, G_receiver, d**2)
+        P_received = calculate_received_power(P_transmitted, w_transmitter, 1.0, d**2)
         
         return P_received
         
