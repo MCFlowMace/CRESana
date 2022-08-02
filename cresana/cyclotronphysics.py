@@ -173,23 +173,24 @@ def get_cres_power_spec(E_cres, pitch, B, n_harmonics, theta, sr):
     
     
 # polarization
+
+def get_right_handed_coordinate_system(r):
+
+    a = np.array([0,0,1])
+    
+    if np.all(np.abs(r - a) <1e-7):
+        return np.array([0,-1,0]), np.array([1,0,0])
+    
+    x = np.cross(r, a)
+    x = normalize(x)
+    
+    y = np.cross(r, x)
+    y = normalize(y)
+    
+    return x, y
     
 def _get_polarization_vectors(r_norm, theta):
     
-    def get_right_handed_coordinate_system(r):
-    
-        a = np.array([0,0,1])
-        
-        if np.all(np.abs(r - a) <1e-7):
-            return np.array([0,-1,0]), np.array([1,0,0])
-        
-        x = np.cross(r, a)
-        x = normalize(x)
-        
-        y = np.cross(r, x)
-        y = normalize(y)
-        
-        return x, y
         
     def get_amplitudes(theta):
         
@@ -204,6 +205,17 @@ def _get_polarization_vectors(r_norm, theta):
     a_x, a_y = get_amplitudes(theta)
     
     return np.expand_dims(a_x,-1)*x, np.expand_dims(a_y,-1)*y
+    
+
+def _get_cres_phase(d_vec, B_direction):
+    
+    x, y = get_right_handed_coordinate_system(B_direction)
+    dx = np.dot(d_vec, x)
+    dy = np.dot(d_vec, y)
+
+    phase = np.arctan2(dy, dx)
+    
+    return phase
     
 
 #Class to bundle all necessary analytic descriptions of the cyclotron fields
@@ -256,7 +268,9 @@ class AnalyticCyclotronField:
         
       #  d_vec, d = self.calc_d_vec_and_abs(p)
       #  theta = self.calc_polar_angle(d_vec)
-        
+      
+        phase = _get_cres_phase(d_vec, self.e_simulation.B_direction)
+
         power = _get_analytic_power(self.e_simulation.E_kin, 
                                 self.e_simulation.pitch, 
                                 self.e_simulation.B_vals, 
@@ -264,4 +278,4 @@ class AnalyticCyclotronField:
         
         pol_x, pol_y = _get_polarization_vectors(d_vec, theta)
         
-        return self.w, power, pol_x, pol_y#, d_vec, d, theta
+        return self.w, power, pol_x, pol_y, phase#, d_vec, d, theta

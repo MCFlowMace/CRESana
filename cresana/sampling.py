@@ -190,10 +190,10 @@ class Simulation:
         
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim)
         
-        w, P_transmitted, pol_x, pol_y = cyclotron_field.get_field_parameters(d_vec, d, theta)
+        w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec, d, theta)
                                                 
         received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
-        field_phase = get_cyclotron_phase_int(w, t_ret)
+        field_phase = get_cyclotron_phase_int(w, t_ret) + phase
         
         signal = self.receiver(t, self.antenna_array, received_copolar_field_power, 
                                 field_phase, d_vec)
