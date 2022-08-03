@@ -58,13 +58,17 @@ class RetardedSimCalculator(ABC):
 
 class TaylorRetardedSimCalculator(RetardedSimCalculator):
     
-    def __init__(self, positions, order=0):
+    def __init__(self, positions, order=0, interpolation='nearest'):
         RetardedSimCalculator.__init__(self, positions)
         
         if order<0 or order>2:
             raise ValueError('Only taylor orders 0<=order<=2 allowed')
             
+        if interpolation != 'nearest' and interpolation != 'spline':
+            raise ValueError('interpolation must be either "nearest" or "spline"')
+            
         self.order = order
+        self.interpolation = interpolation
         
     def __call__(self, t_sample, electron_sim):
         
@@ -73,17 +77,67 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
         d_vec, d = self.calc_d_vec_and_abs(coords)
         
         t_ret_initial = self.get_retarded_time(t, d)
-
-        t_ret, B_ret, pitch_ret, E_kin_ret = self.get_sampled_model_parameters(electron_sim, t_ret_initial)
                                                 
-        retarded_electron_sim = ElectronSim(coords, t_ret, B_ret, E_kin_ret, 
-                                            pitch_ret, electron_sim.B_direction)
+        retarded_electron_sim = self.get_retarded_sim(electron_sim, t_ret_initial)
+        
+        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
                                             
         return retarded_electron_sim, t, d_vec, d
         
+    def enforce_causality(self, t_ret_initial, t_ret, B_ret):
+        
+        # setting to zero adds a small error for the initial phase in the phase integral
+        # since this way the integral starts from t_ret=0 (which is correct) but 
+        # it is assumed that omega(t_ret=0) = 0
+        # the alternative solution of passing only the causal indices to the integral
+        # has a wrong initial phase as well since it starts the integral from
+        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
+        # and integrating from there
+        ind_non_causal = t_ret_initial<0
+        B_ret[ind_non_causal] = 0
+        t_ret[ind_non_causal] = 0
+        
+    def get_retarded_sim(self, electron_sim, t_ret_initial):
+        
+        if self.interpolation=='spline':
+
+            B_f = interp1d(electron_sim.t, electron_sim.B_vals, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+            pitch_f = interp1d(electron_sim.t, electron_sim.pitch, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+            E_f = interp1d(electron_sim.t, electron_sim.E_kin, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+            
+            t_ret = t_ret_initial
+            B_ret = B_f(t_ret)
+            pitch_ret = pitch_f(t_ret)
+            E_ret = E_f(t_ret)
+            coords_ret = coords_f(t_ret)
+            
+        else:
+
+            t_ret, sample_ind = find_nearest_samples2d(t_ret_initial, electron_sim.t)
+            B_ret = electron_sim.B_vals[sample_ind]
+            pitch_ret = electron_sim.pitch[sample_ind]
+            E_kin_ret = electron_sim.E_kin[sample_ind]
+            coords_ret = electron_sim.coords[sample_ind]
+        
+        self.enforce_causality(t_ret_initial, t_ret, B_ret)
+        
+        return ElectronSim(coords_ret, t_ret, B_ret, E_kin_ret, 
+                                    pitch_ret, electron_sim.B_direction)
+        
     def get_sample_time_trajectory(self, t_sample, electron_sim):
-        t, sample_ind = find_nearest_samples(t_sample, electron_sim.t)
-        coords = electron_sim.coords[sample_ind]
+        
+        if self.interpolation=='spline':
+            t = t_sample
+            self.coords_f = interp1d(electron_sim.t, electron_sim.coords, 
+                                kind='cubic', axis=0, bounds_error=False, fill_value='extrapolate')
+            coords = coords_f(t)
+        else:
+            #nearest neighbor interpolation
+            t, sample_ind = find_nearest_samples(t_sample, electron_sim.t)
+            coords = electron_sim.coords[sample_ind]
         
         return t, coords
     
@@ -121,28 +175,3 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
         else:
             return t_ret_2(t,d)
         
-    
-        
-    def enforce_causality(self, t_retarded, t_ret_correct, B_sample, pitch):
-        
-        # setting to zero adds a small error for the initial phase in the phase integral
-        # since this way the integral starts from t_ret=0 (which is correct) but 
-        # it is assumed that omega(t_ret=0) = 0
-        # the alternative solution of passing only the causal indices to the integral
-        # has a wrong initial phase as well since it starts the integral from
-        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
-        # and integrating from there
-        ind_non_causal = t_retarded<0
-        B_sample[ind_non_causal] = 0
-        t_ret_correct[ind_non_causal] = 0
-        
-    def get_sampled_model_parameters(self, electron_sim, t_retarded):
-
-        t_ret_correct, sample_ind_correct = find_nearest_samples2d(t_retarded, electron_sim.t)
-        B_sample = electron_sim.B_vals[sample_ind_correct]
-        pitch = electron_sim.pitch[sample_ind_correct]
-        E_kin = electron_sim.E_kin[sample_ind_correct]
-        
-        self.enforce_causality(t_retarded, t_ret_correct, B_sample, pitch)
-        
-        return t_ret_correct, B_sample, pitch, E_kin

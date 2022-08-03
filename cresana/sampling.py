@@ -77,7 +77,6 @@ class Simulation:
         self.clock = Clock(sampling_rate)
         self.antenna_array = antenna_array
         self.receiver = IQReceiver(f_LO)
-        self.retarded_calculator = TaylorRetardedSimCalculator(self.antenna_array.positions)
         self.configure(kwargs)
         
     def configure(self, config_dict):
@@ -85,9 +84,10 @@ class Simulation:
         #default configuration
         self.use_AM = True
         self.use_FM = True
-        self.use_taylor = False
-        self.use_interpolation = True
-        self.interpolation_compression = 0.5
+        use_taylor = True
+        taylor_order = 0
+        use_interpolation = False
+        interpolation_compression = 0.5
         
         if 'use_AM' in config_dict:
             self.use_AM = config_dict['use_AM']
@@ -96,13 +96,23 @@ class Simulation:
             self.use_FM = config_dict['use_FM']
             
         if 'use_taylor' in config_dict:
-            self.use_taylor = config_dict['use_taylor']
+            use_taylor = config_dict['use_taylor']
             
         if 'use_interpolation' in config_dict:
-            self.use_interpolation = config_dict['use_interpolation']
+            use_interpolation = config_dict['use_interpolation']
             
         if 'interpolation_compression' in config_dict:
-            self.interpolation_compression = config_dict['interpolation_compression']
+            interpolation_compression = config_dict['interpolation_compression']
+            
+        if 'taylor_order' in config_dict:
+            taylor_order = config_dict['taylor_order']
+        
+        if use_taylor: 
+            interpolation = 'spline' if use_interpolation else 'nearest'
+            self.retarded_calculator = TaylorRetardedSimCalculator(
+                                            self.antenna_array.positions, 
+                                            order=taylor_order, 
+                                            interpolation=interpolation)
             
     def get_cyclotron_phase_int(self, w, t):
         return cumtrapz(w, x=t, initial=0.0)
