@@ -68,6 +68,9 @@ def angle_with_orientation(a, b, n):
     
     
 class Interpolator2dx:
+    """
+    Convenience class for interpolation of 2D x values which are not on a grid
+    """
     
     def __init__(self, x, y):
         
@@ -84,3 +87,12 @@ class Interpolator2dx:
             res[i] = f(x)
             
         return res
+
+
+def differentiate(y, x):
+    
+    diff = np.zeros_like(y)
+    
+    diff[...,1:-1] = (y[...,2:] - y[...,:-2])/(x[2:] - x[:-2])
+
+    return diff
