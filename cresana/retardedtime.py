@@ -175,3 +175,89 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
         else:
             return t_ret_2(t,d)
         
+
+class ForwardRetardedSimCalculator(RetardedSimCalculator):
+    
+    def __init__(self, positions, compression=0.5):
+        
+        RetardedSimCalculator.__init__(self, positions)
+        
+        if compression!='None' and compression > 1.0:
+            print('Warning: using compression>1.0 is discouraged')
+            
+        self.compression = compression
+        
+    def get_decimation_factor(self, t_traj, t_sample):
+        dt_high = t_traj[1]-t_traj[0]
+        dt_low = t_sample[1] - t_sample[0]
+        c = dt_high/dt_low if self.compression=='None' else self.compression
+        
+        decimation_factor = int(dt_low/dt_high*c)
+        
+        return decimation_factor
+    
+    def get_undersampled(self, electron_sim, decimation_factor):
+        
+        t = electron_sim.t[::decimation_factor]
+        pitch = electron_sim.pitch[::decimation_factor]
+        B = electron_sim.B_vals[::decimation_factor]
+        coords = electron_sim.coords[::decimation_factor]
+        E_kin = electron_sim.E_kin[::decimation_factor]
+        
+        return ElectronSim(coords, t, B, E_kin, 
+                                    pitch, electron_sim.B_direction)
+    
+    def __call__(self, t_sample, electron_sim):
+        
+        decimation_factor = get_decimation_factor(electron_sim.t, t_sample)
+        
+        electron_sim_undersampled = self.get_undersampled(electron_sim, decimation_factor)
+        
+        B_ret_f = interp1d(electron_sim_undersampled.t, 
+                            electron_sim_undersampled.B_vals, kind='cubic')
+        pitch_ret_f = interp1d(electron_sim_undersampled.t, 
+                            electron_sim_undersampled.pitch, kind='cubic')
+        E_ret_f = interp1d(electron_sim_undersampled.t, 
+                            electron_sim_undersampled.E_kin, kind='cubic')
+        coords_ret_f = interp1d(electron_sim_undersampled.t, 
+                            electron_sim_undersampled.coords, kind='cubic', axis=0)
+        
+        
+        #d_vec = np.expand_dims(test_pos,1) - coords
+        #d = np.sqrt(np.sum(d_vec**2, axis=-1))
+        
+        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
+        
+        t_travel = d/speed_of_light
+        t_antenna = t_traj + t_travel
+        
+        
+        causal = np.expand_dims(t_sample,0)>=np.expand_dims(t_antenna[:,0],1)
+        
+        t_ret_f = Interpolator2dx(t_antenna, t_traj)
+        
+        t_ret = t_ret_f(t_sample)
+        
+        t_ret[~causal] = 0.
+
+        B_ret = np.zeros(t_ret.shape)
+        pitch_ret = np.zeros(t_ret.shape)
+        E_ret = np.zeros(t_ret.shape)
+        
+        coords_ret = np.zeros(t_ret.shape + (3,))
+        
+        d_ret = np.zeros_like(coords_ret)
+        
+        B_ret[causal] = B_ret_f(t_ret[causal])
+        pitch_ret[causal] = pitch_ret_f(t_ret[causal])
+        E_ret[causal] = E_ret_f(t_ret[causal])
+        coords_ret[causal] = coords_ret_f(t_ret[causal])
+
+        #d_ret = np.expand_dims(test_pos, 1) - coords_ret
+        
+        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
+        
+        ElectronSim(coords_ret, t_ret, B_ret, E_kin_ret, 
+                                    pitch_ret, electron_sim.B_direction)
+        
+        return retarded_electron_sim, t_sample, d_vec, d

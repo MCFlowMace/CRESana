@@ -14,7 +14,7 @@ from scipy.integrate import cumtrapz
 
 from .electronsim import simulate_electron
 from .cyclotronphysics import AnalyticCyclotronField
-from .retardedtime import TaylorRetardedSimCalculator
+from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
 
 
 class Clock:
@@ -113,6 +113,10 @@ class Simulation:
                                             self.antenna_array.positions, 
                                             order=taylor_order, 
                                             interpolation=interpolation)
+        else:
+            self.retarded_calculator = ForwardRetardedSimCalculator(
+                                            self.antenna_array.positions,
+                                            compression=interpolation_compression)
             
     def get_cyclotron_phase_int(self, w, t):
         return cumtrapz(w, x=t, initial=0.0)
