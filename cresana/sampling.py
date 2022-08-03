@@ -17,7 +17,7 @@ from .physicsconstants import speed_of_light, ev
 from .cyclotronphysics import get_radiated_power, get_omega_cyclotron_time_dependent
 from .electronsim import simulate_electron, ElectronSim
 from .cyclotronphysics import AnalyticCyclotronField
-from .utility import norm_squared
+from .utility import norm_squared, Interpolator2dx
 
 
 class Clock:
@@ -112,11 +112,37 @@ def find_nearest_samples2d(t1, t2):
 
 class Simulation:
 
-    def __init__(self, antenna_array, sampling_rate, f_LO):
+    def __init__(self, antenna_array, sampling_rate, f_LO, **kwargs):
         self.clock = Clock(sampling_rate)
         self.antenna_array = antenna_array
         self.receiver = IQReceiver(f_LO)
+        self.configure(kwargs)
         
+    def configure(self, config_dict):
+        
+        #default configuration
+        self.use_AM = True
+        self.use_FM = True
+        self.use_taylor = False
+        self.use_interpolation = True
+        self.interpolation_compression = 0.5
+        
+        if 'use_AM' in config_dict:
+            self.use_AM = config_dict['use_AM']
+            
+        if 'use_FM' in config_dict:
+            self.use_FM = config_dict['use_FM']
+            
+        if 'use_taylor' in config_dict:
+            self.use_taylor = config_dict['use_taylor']
+            
+        if 'use_interpolation' in config_dict:
+            self.use_interpolation = config_dict['use_interpolation']
+            
+        if 'interpolation_compression' in config_dict:
+            self.interpolation_compression = config_dict['interpolation_compression']
+            
+    
     def get_sample_time_trajectory(self, N, electron_sim):
         t, sample_ind = find_nearest_samples(self.clock(N), electron_sim.t)
         coords = electron_sim.coords[sample_ind]

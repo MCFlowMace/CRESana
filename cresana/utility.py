@@ -67,3 +67,20 @@ def angle_with_orientation(a, b, n):
     return np.arctan2(sin, cos)
     
     
+class Interpolator2dx:
+    
+    def __init__(self, x, y):
+        
+        self.f_inter_l = []
+        
+        for x_i in x:
+            self.f_inter_l.append(interp1d(x_i, y, kind='cubic', bounds_error=False, fill_value='extrapolate'))
+            
+    def __call__(self, x):
+        
+        res = np.empty(shape=[len(self.f_inter_l), x.shape[0]])
+        
+        for i, f in enumerate(self.f_inter_l):
+            res[i] = f(x)
+            
+        return res
