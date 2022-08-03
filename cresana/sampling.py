@@ -12,11 +12,9 @@ __all__ = []
 import numpy as np
 from scipy.integrate import cumtrapz
 
-from .physicsconstants import speed_of_light, ev
-from .cyclotronphysics import get_radiated_power, get_omega_cyclotron_time_dependent
-from .electronsim import simulate_electron, ElectronSim
+from .electronsim import simulate_electron
 from .cyclotronphysics import AnalyticCyclotronField
-from .utility import norm_squared, Interpolator2dx, differentiate
+from .retardedtime import TaylorRetardedSimCalculator
 
 
 class Clock:
@@ -79,6 +77,7 @@ class Simulation:
         self.clock = Clock(sampling_rate)
         self.antenna_array = antenna_array
         self.receiver = IQReceiver(f_LO)
+        self.retarded_calculator = TaylorRetardedSimCalculator(self.antenna_array.positions)
         self.configure(kwargs)
         
     def configure(self, config_dict):
@@ -110,15 +109,20 @@ class Simulation:
 
     def get_samples(self, N, electron_sim):
         
+        t_sample = self.clock(N)
+        
+        retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_sim)
+        
+        t_ret = retarded_electron_sim.t
 
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim)
         
-        w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec, d, theta)
+        w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
                                                 
         received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
         field_phase = self.get_cyclotron_phase_int(w, t_ret) + phase
         
-        signal = self.receiver(t, self.antenna_array, received_copolar_field_power, 
+        signal = self.receiver(t_sample, self.antenna_array, received_copolar_field_power, 
                                 field_phase, d_vec)
 
         return signal

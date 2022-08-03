@@ -13,6 +13,10 @@ import numpy as np
 from scipy.interpolate import interp1d
 from abc import ABC, abstractmethod
 
+from .utility import norm_squared, Interpolator2dx, differentiate
+from .physicsconstants import speed_of_light
+from .electronsim import ElectronSim
+
 
 def find_nearest_samples(t1, t2):
     ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
@@ -50,32 +54,32 @@ class RetardedSimCalculator(ABC):
         d_vec = r/d
         
         return d_vec, d[...,0]
-        
-    def calc_polar_angle(self, r_norm, B_direction):
-
-        return np.arccos(np.dot(r_norm, B_direction))
 
 
 class TaylorRetardedSimCalculator(RetardedSimCalculator):
     
-    def __init__(self, positions):
-        RetardedSimCalculator.__init__(positions)
+    def __init__(self, positions, order=0):
+        RetardedSimCalculator.__init__(self, positions)
+        
+        if order<0 or order>2:
+            raise ValueError('Only taylor orders 0<=order<=2 allowed')
+            
+        self.order = order
         
     def __call__(self, t_sample, electron_sim):
         
-        t, coords = self.get_sample_time_trajectory(N, electron_sim)
+        t, coords = self.get_sample_time_trajectory(t_sample, electron_sim)
         
         d_vec, d = self.calc_d_vec_and_abs(coords)
-        theta = self.calc_polar_angle(d_vec, electron_sim.B_direction)
         
         t_ret_initial = self.get_retarded_time(t, d)
 
-
         t_ret, B_ret, pitch_ret, E_kin_ret = self.get_sampled_model_parameters(electron_sim, t_ret_initial)
-
                                                 
         retarded_electron_sim = ElectronSim(coords, t_ret, B_ret, E_kin_ret, 
                                             pitch_ret, electron_sim.B_direction)
+                                            
+        return retarded_electron_sim, t, d_vec, d
         
     def get_sample_time_trajectory(self, t_sample, electron_sim):
         t, sample_ind = find_nearest_samples(t_sample, electron_sim.t)
@@ -85,39 +89,39 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
     
     def get_retarded_time(self, t, d):
 
-        t_travel = d/speed_of_light
-        t_ret = t - t_travel
-        
-        return t_ret
-        
-    def get_retarded_time_0(t, d):
-        t_travel = d/speed_of_light
-        t_ret = t - t_travel
+        def t_ret_0(t, d):
+            t_travel = d/speed_of_light
+            t_ret = t - t_travel
 
-        return t_ret
+            return t_ret
 
-    def get_retarded_time_1(t, d):
-        
-        v = differentiate(d, t)
-        t_travel = d/(speed_of_light+v)
-        t_ret = t - t_travel
+        def t_ret_1(t, d):
+            
+            v = differentiate(d, t)
+            t_travel = d/(speed_of_light+v)
+            t_ret = t - t_travel
 
-        return t_ret
+            return t_ret
 
-    def get_retarded_time_2(t, d):
-        
-        v = differentiate(d, t)
-        a = differentiate(v, t)
-        
-        t_ret = t - (speed_of_light + v)/a + np.sqrt((speed_of_light + v)**2 - 2*a*d)/a
-        
-        t_ret[a==0.] = -1.
+        def t_ret_2(t, d):
+            
+            v = differentiate(d, t)
+            a = differentiate(v, t)
+            
+            t_ret = t - (speed_of_light + v)/a + np.sqrt((speed_of_light + v)**2 - 2*a*d)/a
+            
+            t_ret[a==0.] = -1.
 
-        return t_ret
+            return t_ret
+            
+        if self.order == 0:
+            return t_ret_0(t, d)
+        elif self.order == 1:
+            return t_ret_1(t,d)
+        else:
+            return t_ret_2(t,d)
+        
     
-    #~ def calc_antenna_dist(self, coords):
-        #~ self.dist_cache = self.antenna_array.get_distance(coords)
-        #~ self.d_abs_cache = np.sqrt(np.sum(self.dist_cache**2, axis=-1))
         
     def enforce_causality(self, t_retarded, t_ret_correct, B_sample, pitch):
         
