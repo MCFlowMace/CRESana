@@ -218,6 +218,11 @@ def _get_cres_phase(d_vec, B_direction):
     return phase
     
 
+def _calc_polar_angle(r_norm, B_direction):
+
+        return np.arccos(np.dot(r_norm, B_direction))
+        
+
 #Class to bundle all necessary analytic descriptions of the cyclotron fields
 class AnalyticCyclotronField:
     
@@ -241,7 +246,7 @@ class AnalyticCyclotronField:
         
         return instance
         
-    def get_field_parameters(self, d_vec, d, theta):
+    def get_field_parameters(self, d_vec):
         """
         Get the parameters that analytically describe the field at point p.
         
@@ -268,6 +273,8 @@ class AnalyticCyclotronField:
         
       #  d_vec, d = self.calc_d_vec_and_abs(p)
       #  theta = self.calc_polar_angle(d_vec)
+      
+        theta = _calc_polar_angle(d_vec, self.e_simulation.B_direction)
       
         phase = _get_cres_phase(d_vec, self.e_simulation.B_direction)
 
