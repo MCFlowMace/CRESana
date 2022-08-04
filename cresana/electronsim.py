@@ -123,7 +123,7 @@ def read_kass_sim(name):
     branches = tree.arrays()
 
     def data(key):
-        return np.array(branches[key][:])
+        return np.array(branches[key][:-1])
 
     t = data('time')
 
