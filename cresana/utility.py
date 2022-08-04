@@ -10,6 +10,7 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 
 def get_pos(x, y, z):

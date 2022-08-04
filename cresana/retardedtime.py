@@ -111,8 +111,8 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
             t_ret = t_ret_initial
             B_ret = B_f(t_ret)
             pitch_ret = pitch_f(t_ret)
-            E_ret = E_f(t_ret)
-            coords_ret = coords_f(t_ret)
+            E_kin_ret = E_f(t_ret)
+            coords_ret = self.coords_f(t_ret)
             
         else:
 
@@ -133,7 +133,7 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
             t = t_sample
             self.coords_f = interp1d(electron_sim.t, electron_sim.coords, 
                                 kind='cubic', axis=0, bounds_error=False, fill_value='extrapolate')
-            coords = coords_f(t)
+            coords = self.coords_f(t)
         else:
             #nearest neighbor interpolation
             t, sample_ind = find_nearest_samples(t_sample, electron_sim.t)
@@ -203,13 +203,14 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
         B = electron_sim.B_vals[::decimation_factor]
         coords = electron_sim.coords[::decimation_factor]
         E_kin = electron_sim.E_kin[::decimation_factor]
+
         
         return ElectronSim(coords, t, B, E_kin, 
                                     pitch, electron_sim.B_direction)
     
     def __call__(self, t_sample, electron_sim):
         
-        decimation_factor = get_decimation_factor(electron_sim.t, t_sample)
+        decimation_factor = self.get_decimation_factor(electron_sim.t, t_sample)
         
         electron_sim_undersampled = self.get_undersampled(electron_sim, decimation_factor)
         
@@ -226,15 +227,15 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
         #d_vec = np.expand_dims(test_pos,1) - coords
         #d = np.sqrt(np.sum(d_vec**2, axis=-1))
         
-        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
-        
+        d_vec, d = self.calc_d_vec_and_abs(electron_sim_undersampled.coords)
+
         t_travel = d/speed_of_light
-        t_antenna = t_traj + t_travel
+        t_antenna = electron_sim_undersampled.t + t_travel
         
         
         causal = np.expand_dims(t_sample,0)>=np.expand_dims(t_antenna[:,0],1)
         
-        t_ret_f = Interpolator2dx(t_antenna, t_traj)
+        t_ret_f = Interpolator2dx(t_antenna, electron_sim_undersampled.t)
         
         t_ret = t_ret_f(t_sample)
         
@@ -255,9 +256,10 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
 
         #d_ret = np.expand_dims(test_pos, 1) - coords_ret
         
-        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
+        d_vec, d = self.calc_d_vec_and_abs(coords_ret)
         
-        ElectronSim(coords_ret, t_ret, B_ret, E_kin_ret, 
+        retarded_electron_sim = ElectronSim(coords_ret, t_ret, B_ret, E_ret, 
                                     pitch_ret, electron_sim.B_direction)
+        
         
         return retarded_electron_sim, t_sample, d_vec, d
