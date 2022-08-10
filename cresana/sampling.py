@@ -111,8 +111,7 @@ class Simulation:
             interpolation = 'spline' if use_interpolation else 'nearest'
             self.retarded_calculator = TaylorRetardedSimCalculator(
                                             self.antenna_array.positions, 
-                                            order=taylor_order, 
-                                            interpolation=interpolation)
+                                            order=taylor_order)
         else:
             self.retarded_calculator = ForwardRetardedSimCalculator(
                                             self.antenna_array.positions,
@@ -129,7 +128,7 @@ class Simulation:
         
         t_ret = retarded_electron_sim.t
 
-        cyclotron_field = AnalyticCyclotronField(retarded_electron_sim)
+        cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
         
         w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
                                                 
