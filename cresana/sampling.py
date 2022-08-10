@@ -87,7 +87,7 @@ class Simulation:
         use_taylor = True
         taylor_order = 0
         use_interpolation = False
-        interpolation_compression = 0.5
+        interpolation_compression = 'None'
         
         if 'use_AM' in config_dict:
             self.use_AM = config_dict['use_AM']
