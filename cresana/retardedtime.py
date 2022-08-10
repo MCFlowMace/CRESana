@@ -117,6 +117,7 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
         else:
 
             t_ret, sample_ind = find_nearest_samples2d(t_ret_initial, electron_sim.t)
+            
             B_ret = electron_sim.B_vals[sample_ind]
             pitch_ret = electron_sim.pitch[sample_ind]
             E_kin_ret = electron_sim.E_kin[sample_ind]
@@ -251,7 +252,9 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
         
         B_ret[causal] = B_ret_f(t_ret[causal])
         pitch_ret[causal] = pitch_ret_f(t_ret[causal])
+        pitch_ret[~causal] = np.pi/2
         E_ret[causal] = E_ret_f(t_ret[causal])
+        E_ret[~causal] = 1.0 #E = 0 causes divide by zero errors
         coords_ret[causal] = coords_ret_f(t_ret[causal])
 
         #d_ret = np.expand_dims(test_pos, 1) - coords_ret
