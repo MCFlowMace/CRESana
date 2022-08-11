@@ -79,9 +79,11 @@ class HarmonicTrap(Trap):
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
 
-        return lambda t: get_pos(   np.zeros(t.shape),
-                                    np.zeros(t.shape),
-                                    get_z_harmonic(t, z_max, omega, 0.0))
+        phi0 = np.arcsin(electron._z0/z_max)
+
+        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+                                    np.ones_like(t)*electron._y0,
+                                    get_z_harmonic(t, z_max, omega, phi0))
                                     
     def B_field(self, z):
         return harmonic_potential(z, self._B0, self._L0)
@@ -105,10 +107,11 @@ class BoxTrap(Trap):
     def trajectory(self, electron):
         omega = self._get_omega(electron)
         z_max = self._get_z_max()
+        phi0 = electron._z0/z_max*np.pi/2
 
-        return lambda t: get_pos(   np.zeros(t.shape),
-                                    np.zeros(t.shape),
-                                    get_z_flat(t, z_max, omega, 0.0))
+        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+                                    np.ones_like(t)*electron._y0,
+                                    get_z_flat(t, z_max, omega, phi0))
 
     def B_field(self, z):
         B = flat_potential(z, self._B0)
@@ -136,9 +139,9 @@ class BathtubTrap(Trap):
         self._L0 = L0
 
     def trajectory(self, electron):
-        return lambda t: get_pos(   np.zeros(t.shape),
-                            np.zeros(t.shape),
-                            self._get_z(electron, t))
+        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+                                    np.ones_like(t)*electron._y0,
+                                    self._get_z(electron, t))
 
     def B_field(self, z):
         # in case float input is used
@@ -167,14 +170,25 @@ class BathtubTrap(Trap):
         v_axial = electron.v0 * np.cos(electron.pitch)
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
+        
+        if abs(electron._z0)>(z_max+self._L/2):
+            raise ValueError(f'Electron cannot be trapped at z0={electron._z0} because for pitch={electron._pitch/np.pi*180}° z_max=+-{z_max+self._L/2:.3f}')
+        
         T = self._period(electron)
 
         # z(t=0) = left end of flat region
         t1 = self._L/v_axial # electron reaches right end of flat region -> goes into harmonic region
         t2 = t1 + np.pi/omega # electron reaches right end of flat region again
         t3 = t2 + t1 # electron reaches left end of flat region again -> goes into harmonic region
+        
+        if abs(electron._z0) < self._L/2:
+            t0 = electron._z0/v_axial
+        elif electron._z0>0:
+            t0 = t1/2 + 1/omega*np.arcsin((electron._z0 - self._L/2)/z_max)
+        else:
+            t0 = -t1/2 - 1/omega*np.arcsin((-electron._z0 - self._L/2)/z_max)
 
-        t = t + t1/2 #zero point shifted such that z(0) = 0
+        t = t + t1/2 + t0 #zero point shifted such that z(0) = z0
         t = t%T # z periodic with T
 
         z = np.zeros(t.shape)
