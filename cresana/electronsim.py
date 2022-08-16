@@ -12,6 +12,7 @@ __all__ = []
 from abc import ABC, abstractmethod
 
 from scipy.signal import sawtooth
+from scipy.interpolate import interp1d
 import numpy as np
 import uproot
 
@@ -137,19 +138,25 @@ class KassSimulation(ElectronSimulator):
         self.decimation_factor = decimation_factor
         self.interpolation = interpolation
         self._read_kass_sim(file_name)
-        self.interpolate()
+        self._interpolate()
         
     def __call__(self, t):
         
-         if self.interpolation=='spline':
+        print('Using Kassiopeia simulated trajectory')
+        
+        if self.interpolation=='spline':
+            
+            print('Spline interpolation')
             
             t_traj = t
-            B = B_f(t)
-            pitch = pitch_f(t)
-            E_kin = E_f(t)
+            B = self.B_f(t)
+            pitch = self.pitch_f(t)
+            E_kin = self.E_f(t)
             coords = self.coords_f(t)
             
         else:
+            
+            print('Nearest neighbor interpolation')
 
             t_traj, sample_ind = find_nearest_samples2d(t, self.electron_sim.t)
             
@@ -158,7 +165,7 @@ class KassSimulation(ElectronSimulator):
             E_kin = self.electron_sim.E_kin[sample_ind]
             coords = self.electron_sim.coords[sample_ind]
         
-        self.enforce_causality(t, t_traj, B)
+        self.enforce_causality(t, t_traj, B, E_kin, pitch)
         
         return ElectronSim(coords, t_traj, B, E_kin, 
                                     pitch, self.electron_sim.B_direction)
@@ -175,7 +182,7 @@ class KassSimulation(ElectronSimulator):
         
         return t, coords
         
-    def enforce_causality(self, t, t_traj, B):
+    def enforce_causality(self, t, t_traj, B, E, pitch):
         
         # setting to zero adds a small error for the initial phase in the phase integral
         # since this way the integral starts from t_ret=0 (which is correct) but 
@@ -196,11 +203,11 @@ class KassSimulation(ElectronSimulator):
             self.coords_f = interp1d(self.electron_sim.t, self.electron_sim.coords, 
                         kind='cubic', axis=0, bounds_error=False, fill_value='extrapolate')
                         
-            self.B_f = interp1d(electron_sim.t, electron_sim.B_vals, kind='cubic', 
+            self.B_f = interp1d(self.electron_sim.t, self.electron_sim.B_vals, kind='cubic', 
                             bounds_error=False, fill_value='extrapolate')
-            self.pitch_f = interp1d(electron_sim.t, electron_sim.pitch, kind='cubic', 
+            self.pitch_f = interp1d(self.electron_sim.t, self.electron_sim.pitch, kind='cubic', 
                             bounds_error=False, fill_value='extrapolate')
-            self.E_f = interp1d(electron_sim.t, electron_sim.E_kin, kind='cubic', 
+            self.E_f = interp1d(self.electron_sim.t, self.electron_sim.E_kin, kind='cubic', 
                             bounds_error=False, fill_value='extrapolate')
         
     def _read_kass_sim(self, name):

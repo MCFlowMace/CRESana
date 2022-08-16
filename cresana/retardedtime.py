@@ -10,7 +10,6 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
-from scipy.interpolate import interp1d
 from abc import ABC, abstractmethod
 
 from .utility import norm_squared, Interpolator2dx, differentiate
@@ -84,6 +83,8 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
     def get_retarded_time(self, t, d):
 
         def t_ret_0(t, d):
+            
+            print('Calculating 0th order taylor retarded time')
             t_travel = d/speed_of_light
             t_ret = t - t_travel
 
@@ -91,6 +92,7 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
 
         def t_ret_1(t, d):
             
+            print('Calculating 1st order taylor retarded time')
             v = differentiate(d, t)
             t_travel = d/(speed_of_light+v)
             t_ret = t - t_travel
@@ -99,6 +101,7 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
 
         def t_ret_2(t, d):
             
+            print('Calculating 2nd order taylor retarded time')
             v = differentiate(d, t)
             a = differentiate(v, t)
             
@@ -174,13 +177,15 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
         #~ E_ret[~causal] = 1.0 #E = 0 causes divide by zero errors
         #~ coords_ret[causal] = coords_ret_f(t_ret[causal])
 
-        retarded_electron_sim = electron_simulator(t_ret_initial)
+        retarded_electron_sim = electron_simulator(t_ret)
         
         d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
         
         return retarded_electron_sim, t_sample, d_vec, d
 
     def get_retarded_time(self, t_sample, electron_simulator):
+        
+        print('Calculating forward retarded time')
 
         d_vec, d = self.calc_d_vec_and_abs(electron_simulator.electron_sim.coords)
 

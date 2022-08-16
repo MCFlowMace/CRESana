@@ -12,7 +12,6 @@ __all__ = []
 import numpy as np
 from scipy.integrate import cumtrapz
 
-from .electronsim import simulate_electron
 from .cyclotronphysics import AnalyticCyclotronField
 from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
 
