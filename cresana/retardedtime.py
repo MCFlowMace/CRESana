@@ -118,35 +118,35 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
 
 class ForwardRetardedSimCalculator(RetardedSimCalculator):
     
-    def __init__(self, positions, compression=0.5):
+    def __init__(self, positions):
         
         RetardedSimCalculator.__init__(self, positions)
         
-        if compression!='None' and compression > 1.0:
-            print('Warning: using compression>1.0 is discouraged')
+        #~ if compression!='None' and compression > 1.0:
+            #~ print('Warning: using compression>1.0 is discouraged')
             
-        self.compression = compression
+        #~ self.compression = compression
         
-    def get_decimation_factor(self, t_traj, t_sample):
-        dt_high = t_traj[1]-t_traj[0]
-        dt_low = t_sample[1] - t_sample[0]
-        c = dt_high/dt_low if self.compression=='None' else self.compression
+    #~ def get_decimation_factor(self, t_traj, t_sample):
+        #~ dt_high = t_traj[1]-t_traj[0]
+        #~ dt_low = t_sample[1] - t_sample[0]
+        #~ c = dt_high/dt_low if self.compression=='None' else self.compression
         
-        decimation_factor = int(dt_low/dt_high*c)
+        #~ decimation_factor = int(dt_low/dt_high*c)
         
-        return decimation_factor
+        #~ return decimation_factor
     
-    def get_undersampled(self, electron_sim, decimation_factor):
+    #~ def get_undersampled(self, electron_sim, decimation_factor):
         
-        t = electron_sim.t[::decimation_factor]
-        pitch = electron_sim.pitch[::decimation_factor]
-        B = electron_sim.B_vals[::decimation_factor]
-        coords = electron_sim.coords[::decimation_factor]
-        E_kin = electron_sim.E_kin[::decimation_factor]
+        #~ t = electron_sim.t[::decimation_factor]
+        #~ pitch = electron_sim.pitch[::decimation_factor]
+        #~ B = electron_sim.B_vals[::decimation_factor]
+        #~ coords = electron_sim.coords[::decimation_factor]
+        #~ E_kin = electron_sim.E_kin[::decimation_factor]
 
         
-        return ElectronSim(coords, t, B, E_kin, 
-                                    pitch, electron_sim.B_direction)
+        #~ return ElectronSim(coords, t, B, E_kin, 
+                                    #~ pitch, electron_sim.B_direction)
     
     def __call__(self, t_sample, electron_simulator):
         
