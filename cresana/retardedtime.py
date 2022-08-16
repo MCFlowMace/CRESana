@@ -41,7 +41,7 @@ class RetardedSimCalculator(ABC):
         self.positions = positions
 
     @abstractmethod
-    def __call__(self, t_sample, electron_sim):
+    def __call__(self, t_sample, electron_simulator):
         pass
         
     def calc_d_vec_and_abs(self, coords):
@@ -67,14 +67,13 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
         
     def __call__(self, t_sample, electron_simulator):
         
-        #t, coords = self.get_sample_time_trajectory(t_sample, electron_sim)
         t, coords = electron_simulator.get_sample_time_trajectory(t_sample)
         
         d_vec, d = self.calc_d_vec_and_abs(coords)
         
         t_ret_initial = self.get_retarded_time(t, d)
                                                 
-        retarded_electron_sim = electron_simulator(t_ret_initial) #self.get_retarded_sim(electron_sim, t_ret_initial)
+        retarded_electron_sim = electron_simulator(t_ret_initial)
         
         d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
                                             
@@ -124,58 +123,11 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
     def __init__(self, positions):
         
         RetardedSimCalculator.__init__(self, positions)
-        
-        #~ if compression!='None' and compression > 1.0:
-            #~ print('Warning: using compression>1.0 is discouraged')
-            
-        #~ self.compression = compression
-        
-    #~ def get_decimation_factor(self, t_traj, t_sample):
-        #~ dt_high = t_traj[1]-t_traj[0]
-        #~ dt_low = t_sample[1] - t_sample[0]
-        #~ c = dt_high/dt_low if self.compression=='None' else self.compression
-        
-        #~ decimation_factor = int(dt_low/dt_high*c)
-        
-        #~ return decimation_factor
     
-    #~ def get_undersampled(self, electron_sim, decimation_factor):
-        
-        #~ t = electron_sim.t[::decimation_factor]
-        #~ pitch = electron_sim.pitch[::decimation_factor]
-        #~ B = electron_sim.B_vals[::decimation_factor]
-        #~ coords = electron_sim.coords[::decimation_factor]
-        #~ E_kin = electron_sim.E_kin[::decimation_factor]
-
-        
-        #~ return ElectronSim(coords, t, B, E_kin, 
-                                    #~ pitch, electron_sim.B_direction)
     
     def __call__(self, t_sample, electron_simulator):
-        
-       # decimation_factor = self.get_decimation_factor(electron_sim.t, t_sample)
-        
-       # electron_sim_undersampled = self.get_undersampled(electron_sim, decimation_factor)
-        
-        t_ret = self.get_retarded_time(t_sample, electron_simulator)
-        
-        #~ causal = np.expand_dims(t_sample,0)>=np.expand_dims(t_antenna[:,0],1)
-        #~ t_ret[~causal] = 0.
 
-        #~ B_ret = np.zeros(t_ret.shape)
-        #~ pitch_ret = np.zeros(t_ret.shape)
-        #~ E_ret = np.zeros(t_ret.shape)
-        
-        #~ coords_ret = np.zeros(t_ret.shape + (3,))
-        
-        #~ d_ret = np.zeros_like(coords_ret)
-        
-        #~ B_ret[causal] = B_ret_f(t_ret[causal])
-        #~ pitch_ret[causal] = pitch_ret_f(t_ret[causal])
-        #~ pitch_ret[~causal] = np.pi/2
-        #~ E_ret[causal] = E_ret_f(t_ret[causal])
-        #~ E_ret[~causal] = 1.0 #E = 0 causes divide by zero errors
-        #~ coords_ret[causal] = coords_ret_f(t_ret[causal])
+        t_ret = self.get_retarded_time(t_sample, electron_simulator)
 
         retarded_electron_sim = electron_simulator(t_ret)
         
