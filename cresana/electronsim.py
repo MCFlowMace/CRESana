@@ -186,6 +186,8 @@ class KassSimulation(ElectronSimulator):
         ind_non_causal = t<0
         B[ind_non_causal] = 0
         t_traj[ind_non_causal] = 0
+        E[ind_non_causal] = 1.0
+        pitch[ind_non_causal] = np.pi/2
         
     def _interpolate(self):
         
