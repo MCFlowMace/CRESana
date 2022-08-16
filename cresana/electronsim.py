@@ -128,12 +128,13 @@ class ElectronSimulator:
         
 class KassSimulation(ElectronSimulator):
     
-    def __init__(self, file_name, interpolation='spline'):
+    def __init__(self, file_name, interpolation='spline', decimation_factor=1):
         ElectronSimulator.__init__(self)
         
         if interpolation != 'nearest' and interpolation != 'spline':
             raise ValueError('interpolation must be either "nearest" or "spline"')
-        
+            
+        self.decimation_factor = decimation_factor
         self.interpolation = interpolation
         self._read_kass_sim(file_name)
         self.interpolate()
@@ -209,7 +210,7 @@ class KassSimulation(ElectronSimulator):
         branches = tree.arrays()
 
         def data(key):
-            return np.array(branches[key][:-1])
+            return np.array(branches[key][:-1:self.decimation_factor])
 
         t = data('time')
 
