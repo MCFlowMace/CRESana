@@ -120,11 +120,11 @@ class Simulation:
     def get_cyclotron_phase_int(self, w, t):
         return cumtrapz(w, x=t, initial=0.0)
 
-    def get_samples(self, N, electron_sim):
+    def get_samples(self, N, electron_simulator):
         
         t_sample = self.clock(N)
         
-        retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_sim)
+        retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_simulator)
         
         t_ret = retarded_electron_sim.t
 
