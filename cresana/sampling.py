@@ -84,10 +84,7 @@ class Simulation:
         #default configuration
         self.use_AM = True
         self.use_FM = True
-        use_taylor = True
-        taylor_order = 0
-        use_interpolation = False
-        interpolation_compression = 'None'
+        taylor_order = None
         
         if 'use_AM' in config_dict:
             self.use_AM = config_dict['use_AM']
@@ -98,24 +95,16 @@ class Simulation:
         if 'use_taylor' in config_dict:
             use_taylor = config_dict['use_taylor']
             
-        if 'use_interpolation' in config_dict:
-            use_interpolation = config_dict['use_interpolation']
-            
-        if 'interpolation_compression' in config_dict:
-            interpolation_compression = config_dict['interpolation_compression']
-            
         if 'taylor_order' in config_dict:
             taylor_order = config_dict['taylor_order']
         
-        if use_taylor: 
-            interpolation = 'spline' if use_interpolation else 'nearest'
+        if taylor_order is not None: 
             self.retarded_calculator = TaylorRetardedSimCalculator(
                                             self.antenna_array.positions, 
                                             order=taylor_order)
         else:
             self.retarded_calculator = ForwardRetardedSimCalculator(
-                                            self.antenna_array.positions,
-                                            compression=interpolation_compression)
+                                            self.antenna_array.positions)
             
     def get_cyclotron_phase_int(self, w, t):
         return cumtrapz(w, x=t, initial=0.0)
