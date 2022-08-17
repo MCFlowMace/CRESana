@@ -14,7 +14,6 @@ from abc import ABC, abstractmethod
 
 from .utility import norm_squared, Interpolator2dx, differentiate
 from .physicsconstants import speed_of_light
-from .electronsim import ElectronSim
 
 
 def find_nearest_samples(t1, t2):

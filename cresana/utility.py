@@ -14,7 +14,8 @@ from scipy.interpolate import interp1d
 
 
 def get_pos(x, y, z):
-    return np.vstack((x,y,z)).transpose()
+    #return np.vstack((x,y,z)).transpose()
+    return np.stack((x, y, z),axis=-1)
     
 
 def norm_squared(x):
