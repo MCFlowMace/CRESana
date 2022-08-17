@@ -19,7 +19,7 @@ import uproot
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 from .cyclotronphysics import get_relativistic_velocity
-
+from .sampling import Clock
 
 def get_x(R, phi):
     return R*np.cos(phi)
@@ -123,8 +123,35 @@ class ElectronSimulator:
         pass
         
     @abstractmethod
-    def __call__(self, t):
+    def simulate(self, t):
         pass
+        
+    @abstractmethod
+    def get_sample_time_trajectory(self, t_sample):
+        pass
+        
+    def __call__(self, t):
+        
+        coords, t_traj, B, E_kin, pitch, B_direction = self.simulate(t)
+        self.enforce_causality(t, t_traj, B, E_kin, pitch)
+        
+        return ElectronSim(coords, t_traj, B, E_kin, 
+                                    pitch, self.electron_sim.B_direction)
+        
+    def enforce_causality(self, t, t_traj, B, E, pitch):
+        
+        # setting to zero adds a small error for the initial phase in the phase integral
+        # since this way the integral starts from t_ret=0 (which is correct) but 
+        # it is assumed that omega(t_ret=0) = 0
+        # the alternative solution of passing only the causal indices to the integral
+        # has a wrong initial phase as well since it starts the integral from
+        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
+        # and integrating from there
+        ind_non_causal = t<0
+        B[ind_non_causal] = 0
+        t_traj[ind_non_causal] = 0
+        E[ind_non_causal] = 1.0
+        pitch[ind_non_causal] = np.pi/2
         
         
 class KassSimulation(ElectronSimulator):
@@ -140,7 +167,7 @@ class KassSimulation(ElectronSimulator):
         self._read_kass_sim(file_name)
         self._interpolate()
         
-    def __call__(self, t):
+    def simulate(self, t):
         
         print('Using Kassiopeia simulated trajectory')
         
@@ -164,11 +191,8 @@ class KassSimulation(ElectronSimulator):
             pitch = self.electron_sim.pitch[sample_ind]
             E_kin = self.electron_sim.E_kin[sample_ind]
             coords = self.electron_sim.coords[sample_ind]
-        
-        self.enforce_causality(t, t_traj, B, E_kin, pitch)
-        
-        return ElectronSim(coords, t_traj, B, E_kin, 
-                                    pitch, self.electron_sim.B_direction)
+
+        return coords, t_traj, B, E_kin, pitch, self.electron_sim.B_direction
         
     def get_sample_time_trajectory(self, t_sample):
         
@@ -181,21 +205,6 @@ class KassSimulation(ElectronSimulator):
             coords = self.electron_sim.coords[sample_ind]
         
         return t, coords
-        
-    def enforce_causality(self, t, t_traj, B, E, pitch):
-        
-        # setting to zero adds a small error for the initial phase in the phase integral
-        # since this way the integral starts from t_ret=0 (which is correct) but 
-        # it is assumed that omega(t_ret=0) = 0
-        # the alternative solution of passing only the causal indices to the integral
-        # has a wrong initial phase as well since it starts the integral from
-        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
-        # and integrating from there
-        ind_non_causal = t<0
-        B[ind_non_causal] = 0
-        t_traj[ind_non_causal] = 0
-        E[ind_non_causal] = 1.0
-        pitch[ind_non_causal] = np.pi/2
         
     def _interpolate(self):
         
@@ -245,19 +254,42 @@ class KassSimulation(ElectronSimulator):
 
         self.electron_sim = ElectronSim(coords, t, B_vals, E_kin, pitch, B_direction)
 
-#def differentiate(y, dx):
-#    return (y[2:] - y[:-2])/(2*dx) # = d/dx y[1:-1]
 
 
-def simulate_electron(electron, sampler, trap, N):
-    t = sampler(N+2)
-    t = t-t[1]
-    coords = trap.trajectory(electron)(t)
-    B_vals = trap.B_field(coords[:,2])
-    vz = differentiate(coords[:,2], sampler.dt)
-    pitch = np.arccos(vz/electron.v0)
-    B_direction = np.array([0,0,1])
+class AnalyticSimulation(ElectronSimulator):
+    
+    def __init__(self, trap, electron, N, t_max):
+        ElectronSimulator.__init__(self)
+        
+        self.coords_f = trap.trajectory(electron)
+        self.electron = electron
+        self.B_f = trap.B_field
+        self.pitch_f = trap.pitch(electron)
+        self._get_initial_sim(N, t_max)
+        
+    def simulate(self, t):
+        
+        coords = self.coords_f(t)
+        B_vals = self.B_f(coords[...,2])
+        pitch = self.pitch_f(t)
+        B_direction = np.array([0,0,1])
+       
+        E_kin = np.ones_like(pitch)*self.electron._E_kin # energy loss?!
+        
+        return coords, t, B_vals, E_kin, pitch, B_direction
+        
+    def get_sample_time_trajectory(self, t_sample):
+        
+        t = t_sample
+        coords = self.coords_f(t)
+        
+        return t, coords
 
-    return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, 
-                        pitch, B_direction)
-
+    def _get_initial_sim(self, N, t_max):
+        
+        dt = t_max/N
+        sampling_rate = 1/dt
+        clock = Clock(sampling_rate)
+        data = self.simulate(clock(N))
+        self.electron_sim = ElectronSim(*data)
+        
