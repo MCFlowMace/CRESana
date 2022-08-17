@@ -11,7 +11,7 @@ __all__ = []
 
 from abc import ABC, abstractmethod
 
-from scipy.signal import sawtooth
+from scipy.signal import sawtooth, square
 from scipy.optimize import root_scalar
 from scipy.integrate import cumtrapz
 from scipy.interpolate import CubicSpline
@@ -19,6 +19,7 @@ import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
+from .electronsim import ElectronSim
 
 
 def magnetic_moment(E_kin, pitch, B0):
@@ -34,7 +35,11 @@ class Trap(ABC):
     @abstractmethod
     def B_field(self, z):
         pass
-
+    
+    @abstractmethod
+    def pitch(self, electron):
+        pass
+        
     @abstractmethod
     def get_f(self, electron):
         pass
@@ -56,6 +61,10 @@ def flat_potential(z, B0):
 def get_z_harmonic(t, z_max, omega, phi):
     return z_max*np.sin(omega*t + phi)
         
+        
+def get_vz_harmonic(t, z_max, omega, phi):
+    return z_max*omega*np.cos(omega*t + phi)
+    
 
 def get_z_flat(t, z_max, omega, phi):
     return z_max*sawtooth(t*omega + np.pi/2 + phi, width=0.5)
@@ -88,6 +97,17 @@ class HarmonicTrap(Trap):
     def B_field(self, z):
         return harmonic_potential(z, self._B0, self._L0)
         
+    def pitch(self, electron):
+        omega = self._get_omega(electron)
+        z_max = self._get_z_max(electron)
+        phi0 = np.arcsin(electron._z0/z_max)
+        
+        def f(t):
+            vz = get_vz_harmonic(t, z_max, omega, phi0)
+            return np.arccos(vz/electron.v0)
+        
+        return f
+        
     def _get_omega(self, electron):
         return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
         
@@ -113,6 +133,18 @@ class BoxTrap(Trap):
                                     np.ones_like(t)*electron._y0,
                                     get_z_flat(t, z_max, omega, phi0))
 
+    def pitch(self, electron):
+        omega = self._get_omega(electron)
+        z_max = self._get_z_max()
+        phi0 =  electron._z0/z_max*np.pi/2
+        
+        def f(t):
+            delta = np.pi/2 - electron.pitch
+            sign = square(t*omega + np.pi/2 + phi0)
+            return np.pi/2 - sign*delta
+        
+        return f
+        
     def B_field(self, z):
         B = flat_potential(z, self._B0)
 
@@ -191,19 +223,68 @@ class BathtubTrap(Trap):
         t = t + t1/2 + t0 #zero point shifted such that z(0) = z0
         t = t%T # z periodic with T
 
-        z = np.zeros(t.shape)
-
         first_flat = t<=t1
         right_harmonic = (t>t1)&(t<=2)
         second_flat = (t>t2)&(t<=t3)
         left_harmonic = t>t3
-
+        
+        z = np.zeros(t.shape)
         z[first_flat] = -self._L/2 + v_axial*t[first_flat]
         z[right_harmonic] = self._L/2 + z_max * np.sin(omega*(t[right_harmonic] - t1))
         z[second_flat] = self._L/2 - v_axial*(t[second_flat] - t2)
         z[left_harmonic] = -self._L/2 - z_max * np.sin(omega*(t[left_harmonic] - t3))
 
         return z
+        
+    def pitch(self, electron):
+        v_axial = electron.v0 * np.cos(electron.pitch)
+        omega = self._get_omega(electron)
+        z_max = self._get_z_max(electron)
+        
+        if abs(electron._z0)>(z_max+self._L/2):
+            raise ValueError(f'Electron cannot be trapped at z0={electron._z0} because for pitch={electron._pitch/np.pi*180}° z_max=+-{z_max+self._L/2:.3f}')
+        
+        T = self._period(electron)
+
+        # z(t=0) = left end of flat region
+        t1 = self._L/v_axial # electron reaches right end of flat region -> goes into harmonic region
+        t2 = t1 + np.pi/omega # electron reaches right end of flat region again
+        t3 = t2 + t1 # electron reaches left end of flat region again -> goes into harmonic region
+        
+        if abs(electron._z0) < self._L/2:
+            t0 = electron._z0/v_axial
+        elif electron._z0>0:
+            t0 = t1/2 + 1/omega*np.arcsin((electron._z0 - self._L/2)/z_max)
+        else:
+            t0 = -t1/2 - 1/omega*np.arcsin((-electron._z0 - self._L/2)/z_max)
+            
+        def f(t):
+
+            t = t + t1/2 + t0 #zero point shifted such that z(0) = z0
+            t = t%T # z periodic with T
+
+            first_flat = t<=t1
+            right_harmonic = (t>t1)&(t<=2)
+            second_flat = (t>t2)&(t<=t3)
+            left_harmonic = t>t3
+            
+            delta = np.pi/2 - electron.pitch
+            
+            pitch = np.zeros(t.shape)
+            pitch[first_flat] = np.pi/2 - delta
+            
+            vz = get_vz_harmonic(t[right_harmonic] - t1, z_max, omega, 0.)
+            pitch[right_harmonic] = np.arccos(vz/electron.v0) # self._L/2 + z_max * np.sin(omega*(t[right_harmonic] - t1))
+            
+            pitch[second_flat] = np.pi/2 + delta
+            
+            vz = -get_vz_harmonic(t[left_harmonic] - t3, z_max, omega, 0.)
+            pitch[left_harmonic] = np.arccos(vz/electron.v0)
+            #pitch[left_harmonic] = -self._L/2 - z_max * np.sin(omega*(t[left_harmonic] - t3))
+
+            return pitch
+            
+        return f
 
     def _get_omega(self, electron):
         return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
