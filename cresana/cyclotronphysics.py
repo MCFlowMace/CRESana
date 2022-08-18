@@ -10,6 +10,7 @@ Date: July 19, 2021
 __all__ = []
 
 import numpy as np
+from scipy.integrate import cumtrapz
 
 from .physicsconstants import speed_of_light, E0_electron, epsilon0
 #from .electronsim import ElectronSim
@@ -47,11 +48,20 @@ def get_omega_cyclotron(B, E_kin):
     
 
 def get_radiated_power(E_kin, pitch, B):
+   # w0 = get_omega_cyclotron(B, 0.0)
+    p0 = get_non_relativistic_power(pitch, B)
+    
     beta = get_beta(E_kin)
-    w0 = get_omega_cyclotron(B, 0.0)
-    scaling_factor = beta**2*np.sin(pitch)**2/(1-beta**2)
+    scaling_factor = beta**2/(1-beta**2)
 
-    return w0**2/(6*np.pi*epsilon0*speed_of_light)*scaling_factor
+    return p0*scaling_factor
+    
+
+def get_non_relativistic_power(pitch, B):
+
+    w0 = get_omega_cyclotron(B, 0.0)
+
+    return w0**2/(6*np.pi*epsilon0*speed_of_light)*np.sin(pitch)**2
     
 
 def get_slope(E_kin, p, w):
@@ -63,6 +73,19 @@ def get_omega_cyclotron_time_dependent(B, E_kin, p, t):
 
     return w*(1+p*t/(E0_electron + E_kin))
 
+
+def get_energy(E_kin_initial, t, B, pitch):
+    
+    power = get_non_relativistic_power(pitch, B)
+    b = 2*E0_electron
+    
+    e_loss = cumtrapz(power, x=t, initial=0.0)
+    
+    arg = b/E0_electron**2*e_loss
+    
+    enum = (b + E_kin_initial)*np.exp(arg) - E_kin_initial
+    
+    return b*E_kin_initial/enum
 
 #Other functions mostly for internal usage
 

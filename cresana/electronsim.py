@@ -18,7 +18,7 @@ import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-from .cyclotronphysics import get_relativistic_velocity
+from .cyclotronphysics import get_relativistic_velocity, get_energy
 from .sampling import Clock
 
 def get_x(R, phi):
@@ -273,8 +273,8 @@ class AnalyticSimulation(ElectronSimulator):
         B_vals = self.B_f(coords[...,2])
         pitch = self.pitch_f(t)
         B_direction = np.array([0,0,1])
-       
-        E_kin = np.ones_like(pitch)*self.electron._E_kin # energy loss?!
+
+        E_kin = get_energy(self.electron.E_kin, t, B_vals, pitch)
         
         return coords, t, B_vals, E_kin, pitch, B_direction
         
