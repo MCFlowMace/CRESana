@@ -14,23 +14,6 @@ from abc import ABC, abstractmethod
 
 from .utility import norm_squared, Interpolator2dx, differentiate
 from .physicsconstants import speed_of_light
-
-
-def find_nearest_samples(t1, t2):
-    ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
-    last = np.searchsorted(ind, t2.shape[0]-1)
-
-    return t2[ind[:last]], ind[:last]
-    
-    
-def find_nearest_samples2d(t1, t2):
-    t = np.empty(shape=t1.shape)
-    ind = np.empty(shape=t1.shape, dtype=np.int64)
-    
-    for i in range(t1.shape[0]):
-        t[i], ind[i] = find_nearest_samples(t1[i], t2)
-        
-    return t, ind
     
 
 class RetardedSimCalculator(ABC):
