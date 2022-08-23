@@ -125,6 +125,7 @@ class Simulation:
         t_ret = retarded_electron_sim.t
         
         if not self.use_energy_loss:
+            print('Sampling without energy loss')
             #non-causal samples have energy 1.0 assigned
             ind = np.argmin(retarded_electron_sim.E_kin==1.0, axis=-1)
             retarded_electron_sim.E_kin = retarded_electron_sim.E_kin[([np.arange(ind.shape[0])], [ind])].transpose()
