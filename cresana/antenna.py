@@ -239,7 +239,7 @@ class AntennaArray:
         
     @classmethod
     def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 
-                                antenna):
+                                antenna, add_orthogonal_polarizations=False):
 
         z = np.linspace(z_min, z_max, n_rings)
 
@@ -261,8 +261,13 @@ class AntennaArray:
         
         #set polarization such that at position = (R, 0, 0) -> pol = (0, -1, 0)
         polarizations = np.zeros_like(positions)
+        
         polarizations[:, 0] = positions[:,1]/R
-        polarizations[:, 1] = -positions[:,0]/R
+        polarizations[:, 1] = -positions[:,0]/R        
+        
+        if add_orthogonal_polarizations:
+            polarizations[1::2, 0] = -positions[1::2,0]/R
+            polarizations[1::2, 1] = positions[1::2,1]/R
 
         instance = cls(positions, normals, polarizations, antenna)
 
