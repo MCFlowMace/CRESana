@@ -11,6 +11,7 @@ __all__ = []
 
 import numpy as np
 from scipy.integrate import cumtrapz
+import matplotlib.pyplot as plt
 
 from .cyclotronphysics import AnalyticCyclotronField
 from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
@@ -107,6 +108,9 @@ class Simulation:
             
     def get_cyclotron_phase_int(self, w, t):
         return cumtrapz(w, x=t, initial=0.0)
+        
+    def get_cyclotron_phase(self, w, t):
+        return w*t
 
     def get_samples(self, N, electron_simulator):
         
@@ -121,7 +125,23 @@ class Simulation:
         w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
                                                 
         received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
-        field_phase = self.get_cyclotron_phase_int(w, t_ret) + phase
+        
+        if not self.use_AM:
+            print('Sampling without AM')
+            received_copolar_field_power = np.mean(received_copolar_field_power, axis=-1, keepdims=True)
+            
+        if self.use_FM:
+            field_phase = self.get_cyclotron_phase_int(w, t_ret)
+        else:
+            print('Sampling without FM')
+            # also no more static phase shift
+            #have to remove the w=0. elements (non-causal retarded time) from mean
+            non_zero = w==0.
+            w_ma = np.ma.masked_array(w, mask=non_zero)
+            w = np.mean(w_ma, axis=-1, keepdims=True)
+            field_phase = self.get_cyclotron_phase(w, t_sample)
+            
+        field_phase = field_phase + phase
         
         signal = self.receiver(t_sample, self.antenna_array, received_copolar_field_power, 
                                 field_phase, d_vec)
