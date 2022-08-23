@@ -3,7 +3,7 @@
 """
 
 Author: F. Thomas
-Date: August 11, 2021
+Date: August 11, 2022
 
 """
 
@@ -105,7 +105,6 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
     def __init__(self, positions):
         
         RetardedSimCalculator.__init__(self, positions)
-    
     
     def __call__(self, t_sample, electron_simulator):
 

@@ -45,6 +45,7 @@ def get_signal(A, phase, real=False):
 standard_impedance = 50.
 free_space_impedance = 377.
 
+
 class Antenna(ABC):
     
     def __init__(self):
@@ -218,22 +219,6 @@ class AntennaArray:
         ab = 2*np.cos(delta_phase)*a*b
         
         return a**2 + b**2 + ab
-
-    #~ def get_receiver_gain(self, pol_x, pol_y, d_vec, w_receiver):
-
-        #~ theta, phi = self.get_directivity_angles(d_vec)
-        #~ antenna_gain = self.antenna.get_gain(theta, phi, w_receiver)
-        
-        #~ polarization_mismatch = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2) # for cyclotron radiation delta_phase = np.pi/2
-        
-        #~ return polarization_mismatch*antenna_gain
-        
-    #~ def get_received_power(self, P_transmitted, w_transmitter, w_receiver, pol_x, pol_y, d_vec, d):
-        
-        #~ G_receiver = self.get_receiver_gain(pol_x, pol_y, d_vec, w_receiver)
-        #~ P_received = calculate_received_power(P_transmitted, w_transmitter, G_receiver, d**2)
-        
-        #~ return P_received
         
     def get_received_copolar_field_power(self, P_transmitted, w_transmitter, pol_x, pol_y, d):
         

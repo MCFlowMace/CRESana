@@ -309,3 +309,4 @@ class AnalyticCyclotronField:
         pol_x, pol_y = _get_polarization_vectors(d_vec, theta)
         
         return self.w, power, pol_x, pol_y, phase#, d_vec, d, theta
+
