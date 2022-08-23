@@ -84,6 +84,7 @@ class Simulation:
         #default configuration
         self.use_AM = True
         self.use_FM = True
+        self.use_energy_loss = True
         taylor_order = None
         
         if 'use_AM' in config_dict:
@@ -91,6 +92,9 @@ class Simulation:
             
         if 'use_FM' in config_dict:
             self.use_FM = config_dict['use_FM']
+            
+        if 'use_energy_loss' in config_dict:
+            self.use_energy_loss = config_dict['use_energy_loss']
             
         if 'use_taylor' in config_dict:
             use_taylor = config_dict['use_taylor']
@@ -119,6 +123,11 @@ class Simulation:
         retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_simulator)
         
         t_ret = retarded_electron_sim.t
+        
+        if not self.use_energy_loss:
+            #non-causal samples have energy 1.0 assigned
+            ind = np.argmin(retarded_electron_sim.E_kin==1.0, axis=-1)
+            retarded_electron_sim.E_kin = retarded_electron_sim.E_kin[([np.arange(ind.shape[0])], [ind])].transpose()
 
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
         
