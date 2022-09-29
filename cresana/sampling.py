@@ -13,8 +13,9 @@ import numpy as np
 from scipy.integrate import cumtrapz
 import matplotlib.pyplot as plt
 
-from .cyclotronphysics import AnalyticCyclotronField
+from .cyclotronphysics import AnalyticCyclotronField, get_radiated_power
 from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
+from .physicsconstants import ev
 
 
 class Clock:
@@ -86,6 +87,7 @@ class Simulation:
         self.use_FM = True
         self.use_energy_loss = True
         self.use_polarization = True
+        self.use_isotropic_source = False
         taylor_order = None
         
         if 'use_AM' in config_dict:
@@ -99,6 +101,9 @@ class Simulation:
             
         if 'use_polarization' in config_dict:
             self.use_polarization = config_dict['use_polarization']
+            
+        if 'use_isotropic_source' in config_dict:
+            self.use_isotropic_source = config_dict['use_isotropic_source']
             
         if 'use_taylor' in config_dict:
             use_taylor = config_dict['use_taylor']
@@ -137,6 +142,12 @@ class Simulation:
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
         
         w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
+        
+        if self.use_isotropic_source:
+            print('Sampling with isotropic source')
+            P_transmitted = ev*get_radiated_power(retarded_electron_sim.E_kin, 
+                                                retarded_electron_sim.pitch, 
+                                                retarded_electron_sim.B_vals)
         
         if not self.use_polarization:
             print('Sampling without polarization mismatch')
