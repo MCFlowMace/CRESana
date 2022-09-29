@@ -85,6 +85,7 @@ class Simulation:
         self.use_AM = True
         self.use_FM = True
         self.use_energy_loss = True
+        self.use_polarization = True
         taylor_order = None
         
         if 'use_AM' in config_dict:
@@ -95,6 +96,9 @@ class Simulation:
             
         if 'use_energy_loss' in config_dict:
             self.use_energy_loss = config_dict['use_energy_loss']
+            
+        if 'use_polarization' in config_dict:
+            self.use_polarization = config_dict['use_polarization']
             
         if 'use_taylor' in config_dict:
             use_taylor = config_dict['use_taylor']
@@ -133,6 +137,11 @@ class Simulation:
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
         
         w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
+        
+        if not self.use_polarization:
+            print('Sampling without polarization mismatch')
+            pol_x[:,:,:] = np.expand_dims(self.antenna_array.polarizations,1)
+            pol_y[:,:,:] = np.expand_dims(self.antenna_array.cross_polarizations,1)
                                                 
         received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
         
