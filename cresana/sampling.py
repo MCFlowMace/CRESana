@@ -84,6 +84,7 @@ class Simulation:
         
         #default configuration
         self.use_AM = True
+        self.use_doppler = True
         self.use_FM = True
         self.use_energy_loss = True
         self.use_polarization = True
@@ -95,6 +96,9 @@ class Simulation:
             
         if 'use_FM' in config_dict:
             self.use_FM = config_dict['use_FM']
+            
+        if 'use_doppler' in config_dict:
+            self.use_doppler = config_dict['use_doppler']
             
         if 'use_energy_loss' in config_dict:
             self.use_energy_loss = config_dict['use_energy_loss']
@@ -160,16 +164,20 @@ class Simulation:
             print('Sampling without AM')
             received_copolar_field_power = np.mean(received_copolar_field_power, axis=-1, keepdims=True)
             
-        if self.use_FM:
-            field_phase = self.get_cyclotron_phase_int(w, t_ret)
-        else:
+        if not self.use_FM:
             print('Sampling without FM')
-            # also no more static phase shift
             #have to remove the w=0. elements (non-causal retarded time) from mean
-            non_zero = w==0.
-            w_ma = np.ma.masked_array(w, mask=non_zero)
+            zero = w==0.
+            w_ma = np.ma.masked_array(w, mask=zero)
             w = np.mean(w_ma, axis=-1, keepdims=True)
-            field_phase = self.get_cyclotron_phase(w, t_sample)
+            w = np.repeat(w, zero.shape[-1], axis=-1)
+            w[zero] = 0
+            
+        if not self.use_doppler:
+            print('Sampling without doppler')
+            t_ret = t_sample
+            
+        field_phase = self.get_cyclotron_phase_int(w, t_ret)
             
         field_phase = field_phase + phase
         
