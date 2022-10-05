@@ -11,7 +11,6 @@ __all__ = []
 
 import numpy as np
 from scipy.integrate import cumtrapz
-import matplotlib.pyplot as plt
 
 from .cyclotronphysics import AnalyticCyclotronField, get_radiated_power
 from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
