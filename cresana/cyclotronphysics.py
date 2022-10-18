@@ -47,6 +47,11 @@ def get_omega_cyclotron(B, E_kin):
     return speed_of_light*speed_of_light*B/(E0_electron + E_kin)
     
 
+def get_B_required(w, E_kin):
+    
+    return w/(speed_of_light*speed_of_light)*(E0_electron + E_kin)
+    
+
 def get_radiated_power(E_kin, pitch, B):
    # w0 = get_omega_cyclotron(B, 0.0)
     p0 = get_non_relativistic_power(pitch, B)
