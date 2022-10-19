@@ -10,156 +10,178 @@ Date: August 11, 2021
 __all__ = []
 
 import numpy as np
-from .physicsconstants import speed_of_light, ev
-from .cyclotronmotion import get_omega_cyclotron, get_slope, get_radiated_power, get_omega_cyclotron_time_dependent
-from .electronsim import simulate_electron
 from scipy.integrate import cumtrapz
 
-import matplotlib.pyplot as plt
+from .cyclotronphysics import AnalyticCyclotronField, get_radiated_power
+from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
+from .physicsconstants import ev
 
-class Sampler:
 
-    def __init__(self, sr, N=8192):
+class Clock:
+    
+    def __init__(self, frequency):
 
-        self._sr = sr
-        self._dt = 1/sr
-        self._N = N
-
+        self._f = frequency
+        self._dt = 1/frequency
+        
     def _get_sample_times(self, N, t_0):
-
         return np.arange(N)*self._dt + t_0
+        
+    def __call__(self, N, t_0=0.):
 
-    def __call__(self, N=None, t_0=0):
-
-        n_samples = N
-        if n_samples==None:
-            n_samples = self._N
-
-        return self._get_sample_times(n_samples, t_0)
-
-    @property
-    def N(self):
-        return self._N
-
+        return self._get_sample_times(N, t_0)
+        
     @property
     def dt(self):
         return self._dt
-
+        
     @property
-    def sr(self):
-        return self._sr
-
-    @N.setter
-    def N(self, val):
-        self._N = val
-
+    def f(self):
+        return self._f
+        
     @dt.setter
     def dt(self, val):
         self._dt = val
         self._sr = 1/val
-
-    @sr.setter
-    def sr(self, val):
-        self._sr = val
+        
+    @f.setter
+    def f(self, val):
+        self._f = val
         self._dt = 1/val
+        
+    
+class IQReceiver:
+    
+    def __init__(self, f_LO, phase=np.pi/2, A_LO=1.0):
+        
+        self.w_LO = 2*np.pi*f_LO
+        self.phase = phase
+        self.A_LO = A_LO
+        
+    def __call__(self, t, antenna_array, received_copolar_field_power, 
+                    field_phase, d_vec):
+        
+        field_phase -= self.w_LO*t
+        
+        samples = antenna_array.get_voltage(received_copolar_field_power, 
+                                                field_phase, 
+                                                self.w_LO, d_vec, 
+                                                real_signal=False)
+                                                
+        return self.A_LO*samples*np.exp(1.0j*self.phase)
 
-def get_signal(A, phase):
 
-    return A*np.exp(1.0j*phase)
+class Simulation:
 
-def get_cyclotron_phase(t, w_avg, w_m):
-
-    return t*(w_avg - w_m)
-
-def get_energy_loss_phase(t, slope):
-
-    return 0.5*slope*t**2
-
-def get_phase_shift(d, w):
-
-    return w*d/speed_of_light
-
-# ~ def get_distance(pos_e, pos_antenna):
-
-    # ~ return np.sqrt(np.sum((pos_e-pos_antenna)**2, axis=1))
-
-def get_cyclotron_phase_int(w, t):
-
-    return cumtrapz(w, x=t, initial=0.0)
-
-def find_nearest_samples(t1, t2):
-
-    ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
-    last = np.searchsorted(ind, t2.shape[0]-1)
-
-    return t2[ind[:last]], ind[:last]
-
-def power_to_voltage(P):
-
-    resistance = 390 # 50 #ohm
-    return np.sqrt(P*resistance)
-
-class SignalModel:
-
-    def __init__(self, antenna_array, sr, w_mix, AM=True, slope=True, frequency_weight=lambda w: 1.0):
-
-        self.sampler = Sampler(sr)
+    def __init__(self, antenna_array, sampling_rate, f_LO, **kwargs):
+        self.clock = Clock(sampling_rate)
         self.antenna_array = antenna_array
-        self.w_mix = w_mix
-        self.AM = AM
-        self.slope = slope
-        self.frequency_weight = frequency_weight
+        self.receiver = IQReceiver(f_LO)
+        self.configure(kwargs)
+        
+    def configure(self, config_dict):
+        
+        #default configuration
+        self.use_AM = True
+        self.use_doppler = True
+        self.use_FM = True
+        self.use_energy_loss = True
+        self.use_polarization = True
+        self.use_isotropic_source = False
+        taylor_order = None
+        
+        if 'use_AM' in config_dict:
+            self.use_AM = config_dict['use_AM']
+            
+        if 'use_FM' in config_dict:
+            self.use_FM = config_dict['use_FM']
+            
+        if 'use_doppler' in config_dict:
+            self.use_doppler = config_dict['use_doppler']
+            
+        if 'use_energy_loss' in config_dict:
+            self.use_energy_loss = config_dict['use_energy_loss']
+            
+        if 'use_polarization' in config_dict:
+            self.use_polarization = config_dict['use_polarization']
+            
+        if 'use_isotropic_source' in config_dict:
+            self.use_isotropic_source = config_dict['use_isotropic_source']
+            
+        if 'use_taylor' in config_dict:
+            use_taylor = config_dict['use_taylor']
+            
+        if 'taylor_order' in config_dict:
+            taylor_order = config_dict['taylor_order']
+        
+        if taylor_order is not None: 
+            self.retarded_calculator = TaylorRetardedSimCalculator(
+                                            self.antenna_array.positions, 
+                                            order=taylor_order)
+        else:
+            self.retarded_calculator = ForwardRetardedSimCalculator(
+                                            self.antenna_array.positions)
+            
+    def get_cyclotron_phase_int(self, w, t):
+        return cumtrapz(w, x=t, initial=0.0)
+        
+    def get_cyclotron_phase(self, w, t):
+        return w*t
 
-    def get_samples(self, N, electron_sim):
+    def get_samples(self, N, electron_simulator):
+        
+        t_sample = self.clock(N)
+        
+        retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_simulator)
+        
+        t_ret = retarded_electron_sim.t
+        
+        if not self.use_energy_loss:
+            print('Sampling without energy loss')
+            #non-causal samples have energy 1.0 assigned
+            ind = np.argmin(retarded_electron_sim.E_kin==1.0, axis=-1)
+            retarded_electron_sim.E_kin = retarded_electron_sim.E_kin[([np.arange(ind.shape[0])], [ind])].transpose()
 
-        #t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t-electron_sim.t[0])
-        t, sample_ind = find_nearest_samples(self.sampler(N), electron_sim.t)
-       # B_sample = electron_sim.B_vals[sample_ind]
-        coords = electron_sim.coords[sample_ind]
-       # theta = electron_sim.theta[sample_ind]
-        E_kin = electron_sim.E_kin
+        cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
+        
+        w, P_transmitted, pol_x, pol_y, phase = cyclotron_field.get_field_parameters(d_vec)
+        
+        if self.use_isotropic_source:
+            print('Sampling with isotropic source')
+            P_transmitted = ev*get_radiated_power(retarded_electron_sim.E_kin, 
+                                                retarded_electron_sim.pitch, 
+                                                retarded_electron_sim.B_vals)
+        
+        if not self.use_polarization:
+            print('Sampling without polarization mismatch')
+            pol_x[:,:,:] = np.expand_dims(self.antenna_array.polarizations,1)
+            pol_y[:,:,:] = np.expand_dims(self.antenna_array.cross_polarizations,1)
+                                                
+        received_copolar_field_power = self.antenna_array.get_received_copolar_field_power(P_transmitted, w, pol_x, pol_y, d)
+        
+        if not self.use_AM:
+            print('Sampling without AM')
+            received_copolar_field_power = np.mean(received_copolar_field_power, axis=-1, keepdims=True)
+            
+        if not self.use_FM:
+            print('Sampling without FM')
+            #have to remove the w=0. elements (non-causal retarded time) from mean
+            zero = w==0.
+            w_ma = np.ma.masked_array(w, mask=zero)
+            w = np.mean(w_ma, axis=-1, keepdims=True)
+            w = np.repeat(w, zero.shape[-1], axis=-1)
+            w[zero] = 0
+            
+        if not self.use_doppler:
+            print('Sampling without doppler')
+            t_ret = t_sample
+            
+        field_phase = self.get_cyclotron_phase_int(w, t_ret)
+            
+        field_phase = field_phase + phase
+        
+        signal = self.receiver(t_sample, self.antenna_array, received_copolar_field_power, 
+                                field_phase, d_vec)
 
-        dist = self.antenna_array.get_distance(coords)
+        return signal
 
-        d = np.sqrt(np.sum(dist**2, axis=-1))
-        t_travel = d/speed_of_light
-
-        t_ret = t - t_travel
-
-        #1 is first causal index at our sampling rates and distances
-        t_ret_correct, sample_ind_correct = find_nearest_samples(t_ret[0,1:], electron_sim.t)
-
-        B_sample = electron_sim.B_vals[sample_ind_correct]
-        theta = electron_sim.theta[sample_ind_correct]
-
-        A = np.zeros(d.shape)
-        phase = np.zeros(d.shape)
-
-        power = get_radiated_power(E_kin, theta, B_sample)
-        w = get_omega_cyclotron_time_dependent(B_sample, E_kin, power, t_ret_correct)
-
-
-        gain = self.antenna_array.get_amplitude(dist)
-
-        detected_power = gain[:,1:]*power
-
-        A[:,1:] = power_to_voltage(detected_power*ev)
-
-        #phase = get_phase_shift(d, w)
-
-        #cyclotron_phase = get_cyclotron_phase_int(w-self.w_mix, t)
-
-        #phase += cyclotron_phase
-
-        phase[:,1:] = get_cyclotron_phase_int(w, t_ret_correct)
-
-        phase -= self.w_mix*t
-
-
-        return get_signal(A, phase)
-
-    def get_samples_from_electron(self, N, electron, trap):
-
-        electron_sim = simulate_electron(electron, self.sampler, trap, N)
-
-        return self.get_samples(N, electron_sim)

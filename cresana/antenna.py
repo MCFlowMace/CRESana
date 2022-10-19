@@ -10,234 +10,237 @@ Date: August 11, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
-from scipy.interpolate import RectBivariateSpline
+
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from scipy import special
+from scipy.interpolate import interp1d
 
-from .cyclotronmotion import get_radiated_power
-from .physicsconstants import ev
+from .utility import normalize, project_on_plane, angle_with_orientation
+from .physicsconstants import speed_of_light
 
-def fake_AM(x, sigma, A_0):
-    return A_0 * np.exp(-0.5*(x/sigma)**2)
 
-def get_disc_solid_angle(d, R, r):
-
+def calculate_received_power(P_transmitted, w_transmitter, G_receiver, d_squared):
     """
-    d - distance between source and disc
-    R - radius of the disc
-    r - radial position of the source
+    Friis transmission equation
+    P_transmitted is power of transmitting antenna*gain of transmitter
     """
-
-    b = np.broadcast(d, r)
-    res = np.empty(b.shape)
-    d_broad = np.broadcast_to(d, b.shape)
-    r_broad = np.broadcast_to(r, b.shape)
-
-    ind = r_broad/R>0.4 #maximum error < 10%
-
-    res[ind] = get_disc_solid_angle_general(d_broad[ind], r_broad[ind], R)
-    res[~ind] = get_disc_solid_angle_on_axis(d_broad[~ind], R)
-
-    return res
-
-def get_disc_solid_angle_on_axis(d, R):
-
-    """
-    d - distance between source and disc
-    R - radius of the disc
-    """
-    r_b = np.sqrt(d**2 + R**2)
-    h = r_b - d
-
-    return np.pi*2*h/r_b
-
-def get_disc_solid_angle_general(d, r, R):
-
-    """
-    d - distance between source and disc
-    R - radius of the disc
-    r - radial position of the source
-    """
-
-    # reference: https://aip.scitation.org/doi/pdf/10.1063/1.1716590
-
-    def K(k):
-        return special.ellipk(k**2)
-
-    def AlphaSqr(r_0,r_m):
-        return 4*np.abs(r_0)*np.abs(r_m)/(np.abs(r_0)+np.abs(r_m))**2
-
-    def R1(L,r_0,r_m):
-        return np.sqrt(L**2+(np.abs(r_m)-np.abs(r_0))**2)
-
-    def RMax(L,r_0,r_m):
-        return np.sqrt(L**2+(np.abs(r_m)+np.abs(r_0))**2)
-
-    def fk(L,r_0,r_m):
-        R_1=R1(L,r_0,r_m)
-        R_Max=RMax(L,r_0,r_m)
-        return np.sqrt(1-(R_1/R_Max)**2)
-
-    def Xi(L,r_0,r_m):
-        return np.arctan2(L,np.abs(r_0-r_m))
-
-    def KM1(k):
-        return special.ellipkm1(k**2)
-
-    #logic from here https://math.stackexchange.com/q/629326
-    def heuman_lambda(xi,k):
-        k_bar=np.sqrt(1-k**2)
-        E_k= special.ellipe(k**2)
-        F_xik= special.ellipkinc(xi,k_bar**2)
-        K_k=K(k)
-        E_xik=special.ellipeinc(xi, k_bar**2)
-        return 2*(E_k*F_xik+K_k*E_xik-K_k*F_xik)/np.pi
-
-    R_max=RMax(d, r, R)
-    R_1=R1(d, r, R)
-    k=fk(d, r, R)
-    alpha_sqr=AlphaSqr(r, R)
-    xi=Xi(d, r, R)
-
-    return 2*np.pi-(2*d/R_max)*K(k)-np.pi*heuman_lambda(xi, k)
-
-class FileGainPattern:
-
-    """
-    Author: R. Reimann
-    """
-
-    def __init__(self, path, tf, N, R_a, E_kin=18600.0, theta=np.pi/2, B_0=0.95967):
-        #P0 is the radiated power of the electron which was used for the gain pattern
-        #self.P0 = get_radiated_power(E_kin, theta, B_0)
-        self.calc_normalization(E_kin, theta, B_0, tf, N, R_a)
-        self.load_power_map(path)
-        self.clean_spikes()
-        self.generate_spline()
-
-    def calc_normalization(self, E_kin, theta, B_0, tf, N, R_a):
-
-        R_kt = 50
-
-        P0 = get_radiated_power(E_kin, theta, B_0)*ev
-        self.normalization = R_kt/(P0*R_a*N*np.abs(tf)**2)
-
-    def load_power_map(self, path):
-
-        data = np.loadtxt(path, delimiter=',')
-
-        r = data[:,0]
-        z = data[:,1]
-        p = data[:,2]
-
-        df = pd.DataFrame({'z': z, 'r': r, 'p': p})
-        df_sorted = df.sort_values(by=['r', 'z'])
-
-        z = np.array(df_sorted['z'])
-        r = np.array(df_sorted['r'])
-        p = np.array(df_sorted['p'])
-
-        r_vals = np.unique(r)
-        z_vals = np.unique(z)
-
-        power = p.reshape(r_vals.shape[0], z_vals.shape[0])
-
-        self.r_pos = z_vals
-        self.d_pos = r_vals
-
-        self.power = power#*self.normalization
-
-    def clean_spikes(self):
-        for i in range(1, len(self.power)-1):
-            for j in range(1, len(self.power[i])-1):
-                mean = []
-                for di in [-1, 0, 1]:
-                    for dj in [-1, 0, 1]:
-                        if di==dj==0: continue
-                        mean.append(self.power[i+di,j+dj])
-                if np.abs((np.mean(mean)-self.power[i,j])/np.mean(mean)) > 0.7:
-                    self.power[i,j] = np.mean(mean)
-
-    def generate_spline(self):
-        self.spline = RectBivariateSpline(self.r_pos, self.d_pos, self.power.transpose())
-
-    def __call__(self, r, d, grid=False):
-        return self.spline(r, d, grid=grid)
-
-    def plot(self, **kwargs):
-        fig, ax = plt.subplots(figsize=(3*2,6*2))
-
-        extent = [np.min(self.r_pos), np.max(self.r_pos), np.min(self.d_pos), np.max(self.d_pos)]
-
-        power_map = self.spline(self.r_pos, self.d_pos, grid=True)
-        print(power_map.shape)
-        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", zorder=2, **kwargs)
-        ax.set_aspect("equal")
-        cb = plt.colorbar(im, ax=ax)
-        cb.set_label("Detected power/Radiated power")
-        ax.set_xlim(-0.03,0.03)
-        ax.set_ylim(0, 0.231)
-        ax.set_xlabel("z [m]")
-        ax.set_ylabel("d [m]")
+    P_received = np.empty(shape=P_transmitted.shape)
+    P_received = P_transmitted*G_receiver*speed_of_light**2/(4*d_squared)
+    
+    ind = w_transmitter != 0
+    P_received[ind] /= w_transmitter[ind]**2
+    P_received[np.invert(ind)] = 0
+    return P_received
 
 
-class DiscSolidAngleGainPattern:
-
-    def __init__(self, R, d_max=10, n_r=100, n_d=1000):
-        self.generate_gain_map(d_max, n_r, n_d)
-        self.generate_spline()
-        self.R = R
-
-    def generate_gain_map(self, d_max, n_r, n_d):
-        self.d_pos = np.linspace(0.0, d_max, n_d)
-        self.r_pos = np.linspace(0.0, 1.0, n_r, endpoint=False)
-        self.gains = get_disc_solid_angle_general(np.expand_dims(self.d_pos,1), self.r_pos, 1.0)/(4*np.pi)
-        print(self.gains.shape)
-
-    def generate_spline(self):
-        self.spline = RectBivariateSpline(self.d_pos, self.r_pos, self.gains)
-
-    def __call__(self, d, r, grid=False):
-        return self.spline(np.abs(d)/self.R, r/self.R, grid=grid)
-
-    def plot(self, **kwargs):
-        fig, ax = plt.subplots()
-
-        extent = [np.min(self.d_pos), np.max(self.d_pos), np.min(self.r_pos), np.max(self.r_pos)]
-
-        power_map = self.spline(self.d_pos, self.r_pos)
-
-        im = ax.imshow(power_map.transpose(), extent=extent, origin="lower", **kwargs)
-        ax.set_aspect("equal")
-        cb = plt.colorbar(im, ax=ax)
-        cb.set_label("relative gain")
-        #ax.set_xlim(-0.03,0.03)
-        ax.set_xlim(0, 2.5)
-        ax.set_xlabel("d/R")
-        ax.set_ylabel("r/R")
+#voltage signal model is A*cos(phi) = A/2*(e^iphi + e^-iphi)
+def get_signal(A, phase, real=False):
+    signal = np.exp(1.0j*phase)
+    
+    if real:
+        signal = signal + np.exp(-1.0j*phase)
+        
+    return A*0.5*signal
+    
+    
+standard_impedance = 50.
+free_space_impedance = 377.
 
 
+class Antenna(ABC):
+    
+    def __init__(self):
+        pass
+        
+    def get_tf_gain(self, w_receiver):
+        
+        tf = np.abs(self.transfer_function(w_receiver))
+        
+        return tf**2*free_space_impedance*w_receiver**2/(np.pi*speed_of_light**2*standard_impedance)
+        
+    def get_directivity_gain(self, theta, phi):
+        return self.directivity_factor(theta, phi)**2
+        
+    def get_gain(self, theta, phi, w_receiver):
+        g = self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
+        return g
+        
+    def power_to_amplitude(self, P):
+        #P = u_rms^2/R and u0*sqrt(2)=u_rms for a sine wave -> u0 = sqrt(2 * P * R)
+        # u_rms = u0 for complex wave
+        u0 =  np.sqrt(2*P*standard_impedance)
+        return u0
+        
+    def get_phase(self, phase, w_receiver):
+        
+        angle = np.angle(self.transfer_function(w_receiver))
+        
+        return phase + angle
+        
+    def get_voltage(self, copolar_power, field_phase,
+                    theta, phi, w_receiver, real_signal=False):
+                        
+        gain = self.get_gain(theta, phi, w_receiver)
+        U0 = self.power_to_amplitude(copolar_power*gain)
+        phase0 = self.get_phase(field_phase, w_receiver)
+        element_signals = get_signal(U0, phase0, real=real_signal)
+        
+        return self.sum_elements(element_signals)
+        
+    @abstractmethod
+    def transfer_function(self, w_receiver):
+        pass
+        
+    @abstractmethod
+    def directivity_factor(self, theta, phi):
+        pass
+        
+    @abstractmethod
+    def position_elements(self, positions):
+        pass
+        
+    @abstractmethod
+    def sum_elements(self, signals):
+        pass
+        
+
+class IsotropicAntenna(Antenna):
+    
+    def __init__(self):
+        
+        Antenna.__init__(self)
+        
+    def transfer_function(self, w_receiver):
+        
+        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
+        
+        return tf_abs + 0.0j
+        
+    def directivity_factor(self, theta, phi):
+        return np.ones_like(theta)
+        
+    def position_elements(self, positions):
+        return positions
+        
+    def sum_elements(self, signals):
+        return signals
+        
+    
+class SlottedWaveguideAntenna(Antenna):
+    
+    def __init__(self, n_slots, tf_file_name, slot_offset=7.75e-3, 
+                    tf_frequency_unit=1.0e9):
+        
+        Antenna.__init__(self)
+        
+        self.n_slots = n_slots
+        self.slot_offset = slot_offset
+        self._create_tf(tf_file_name, tf_frequency_unit)
+        
+    
+    def _create_tf(self, tf_file_name, tf_frequency_unit=1.0e9):
+        
+        tf_data = np.loadtxt(tf_file_name)
+        
+        tf_f = tf_data[:,0]*2*np.pi*tf_frequency_unit
+        tf_val_re = tf_data[:,1]
+        tf_val_im = tf_data[:,2]
+        
+        inter_re = interp1d(tf_f, tf_val_re, kind='cubic')
+        inter_im = interp1d(tf_f, tf_val_im, kind='cubic')
+        
+        self.interp_tf = lambda w: inter_re(w) + 1.0j*inter_im(w)
+        
+    def transfer_function(self, w_receiver):
+        return self.interp_tf(w_receiver)
+        
+    def directivity_factor(self, theta, phi):
+    
+        theta_mod = np.pi/2 - theta
+        
+        theta_factor = np.zeros_like(theta_mod)
+        
+        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
+        
+        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
+        phi_factor = np.cos(phi)
+        
+        return theta_factor*phi_factor
+        
+    def position_elements(self, positions):
+        """
+        Positions waveguide slots for given positions of Waveguide antennas
+        """
+        offset = np.zeros_like(positions)
+        offset[:,2] = self.slot_offset
+        
+        n_offset = np.arange(self.n_slots)-self.n_slots/2 + 0.5
+        
+        offset_positions = n_offset*np.expand_dims(offset,-1)
+        offset_positions_reshaped = np.einsum('ijk->kij', offset_positions).reshape((-1, 3))
+        
+        element_positions = np.tile(positions, (self.n_slots,1))
+        
+        return element_positions + offset_positions_reshaped
+        
+    def sum_elements(self, signals):
+        
+        signal_reshaped = signals.reshape((self.n_slots, -1, signals.shape[-1]))
+        
+        return np.sum(signal_reshaped, axis=0)
+    
+    
 class AntennaArray:
 
-    def __init__(self, positions, gain_f):
-
-        #attention !!! orientation of antenna is NOT included
+    def __init__(self, positions, normals, polarizations, antenna):
 
         self.positions = positions
-        self.gain_f = gain_f
+        self.normals = normals
+        self.polarizations = polarizations
+        self.cross_polarizations = normalize(np.cross(normals, polarizations))
+        self.antenna = antenna
+        
+    def get_directivity_angles(self, d_vec):
+        
+        r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
+        r_project_cross = project_on_plane(-d_vec, self.polarizations)
+        
+        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
+                                       np.expand_dims(self.cross_polarizations, 1))
 
-    def get_distance(self, pos):
-        return pos - np.expand_dims(self.positions, 1)
-
-    def get_amplitude(self, dist):
-        r = np.sqrt(dist[:,:,0]**2 + dist[:,:,1]**2)
-        z = dist[:,:,2]
-        return self.gain_f(z, r)
-
+        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
+                                       np.expand_dims(self.polarizations, 1))
+        
+        return theta, phi
+        
+    def get_polarization_mismatch(self, pol_x, pol_y, delta_phase):
+    
+        a = np.einsum('ik,ijk->ij', self.polarizations, pol_x) #(dot(pol_x, polarizations))
+        b = np.einsum('ik,ijk->ij', self.polarizations, pol_y)
+        ab = 2*np.cos(delta_phase)*a*b
+        
+        return a**2 + b**2 + ab
+        
+    def get_received_copolar_field_power(self, P_transmitted, w_transmitter, pol_x, pol_y, d):
+        
+        polarization_mismatch_gain = self.get_polarization_mismatch(pol_x, pol_y, np.pi/2)
+        
+        P_received = calculate_received_power(P_transmitted, w_transmitter, 
+                                        polarization_mismatch_gain, d**2)
+        
+        return P_received
+        
+    def get_voltage(self, received_copolar_field_power, field_phase, 
+                    w_receiver, d_vec, real_signal=False):
+                        
+        theta, phi = self.get_directivity_angles(d_vec)
+        
+        return self.antenna.get_voltage(received_copolar_field_power, 
+                                        field_phase, theta, phi,
+                                        w_receiver, real_signal=real_signal)
+        
     @classmethod
-    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, gain_f):
+    def make_multi_ring_array(cls, R, n_antenna, n_rings, z_min, z_max, 
+                                antenna, add_orthogonal_polarizations=False):
 
         z = np.linspace(z_min, z_max, n_rings)
 
@@ -249,8 +252,25 @@ class AntennaArray:
         yy, _ = np.meshgrid(y, z)
 
         positions = np.column_stack((xx.flatten(), yy.flatten(), zz.flatten()))
+        
+        positions = antenna.position_elements(positions)
+        
+        normals = np.zeros_like(positions)
+        
+        normals[:,0] = -positions[:,0]/R
+        normals[:,1] = -positions[:,1]/R
+        
+        #set polarization such that at position = (R, 0, 0) -> pol = (0, -1, 0)
+        polarizations = np.zeros_like(positions)
+        
+        polarizations[:, 0] = positions[:,1]/R
+        polarizations[:, 1] = -positions[:,0]/R        
+        
+        if add_orthogonal_polarizations:
+            polarizations[1::2, 0] = -positions[1::2,0]/R
+            polarizations[1::2, 1] = positions[1::2,1]/R
 
-        instance = cls(positions, gain_f)
+        instance = cls(positions, normals, polarizations, antenna)
 
         return instance
 

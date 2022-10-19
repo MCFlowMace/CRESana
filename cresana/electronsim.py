@@ -12,36 +12,45 @@ __all__ = []
 from abc import ABC, abstractmethod
 
 from scipy.signal import sawtooth
+from scipy.interpolate import interp1d
 import numpy as np
 import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-
-def get_relativistic_velocity(E_kin):
-
-    '''
-    E_kin - electron kinetic energy in eV
-    '''
-
-    relative_energy = E0_electron/(E0_electron + E_kin)
-
-    return np.sqrt(1-relative_energy**2)*speed_of_light
+from .cyclotronphysics import get_relativistic_velocity, get_energy
+from .sampling import Clock
 
 def get_x(R, phi):
-
     return R*np.cos(phi)
 
-def get_y(R, phi):
 
+def get_y(R, phi):
     return R*np.sin(phi)
 
-def gradB_phase(t, omega, phi):
 
+def gradB_phase(t, omega, phi):
     return t*omega + phi
+    
+    
+def find_nearest_samples(t1, t2):
+    ind = np.searchsorted((t2[1:]+t2[:-1])/2, t1)
+    last = np.searchsorted(ind, t2.shape[0]-1)
+
+    return t2[ind[:last]], ind[:last]
+    
+    
+def find_nearest_samples2d(t1, t2):
+    t = np.empty(shape=t1.shape)
+    ind = np.empty(shape=t1.shape, dtype=np.int64)
+    
+    for i in range(t1.shape[0]):
+        t[i], ind[i] = find_nearest_samples(t1[i], t2)
+        
+    return t, ind
+
 
 class Electron:
-
     """Represents the initial state of an electron.
 
     Attributes
@@ -55,7 +64,6 @@ class Electron:
     """
 
     def __init__(self, E_kin, pitch, r=0, phi=0, z0=0, v_phi=0):
-
         self._E_kin = E_kin
         self._pitch = pitch/180*np.pi
         self._x0 = r*np.cos(phi)
@@ -77,7 +85,6 @@ class Electron:
         return self._v0
 
     def __repr__(self):
-
         return ("Kinetic energy : {0:10.4f} eV \n".format(self._E_kin)
                 +"Pitch angle:  {0:8.4f} ° \n".format(self._pitch/np.pi*180)
                 +"Velocity:  {0:14.2f} m/s \n".format(self._v0)
@@ -89,7 +96,6 @@ class Electron:
 
 
 class ElectronSim:
-
     """Represents an electron simulation result.
 
     Attributes
@@ -102,61 +108,188 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin, theta):
-
+    def __init__(self, coords, t, B_vals, E_kin, pitch, B_direction):
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
-        self.theta = theta
+        self.pitch = pitch
+        self.B_direction = B_direction
+        
 
-def differentiate(y, dx):
+class ElectronSimulator:
+    
+    def __init__(self):
+        pass
+        
+    @abstractmethod
+    def simulate(self, t):
+        pass
+        
+    @abstractmethod
+    def get_sample_time_trajectory(self, t_sample):
+        pass
+        
+    def __call__(self, t):
+        
+        coords, t_traj, B, E_kin, pitch, B_direction = self.simulate(t)
+        self.enforce_causality(t, t_traj, B, E_kin, pitch)
+        
+        return ElectronSim(coords, t_traj, B, E_kin, 
+                                    pitch, self.electron_sim.B_direction)
+        
+    def enforce_causality(self, t, t_traj, B, E, pitch):
+        
+        # setting to zero adds a small error for the initial phase in the phase integral
+        # since this way the integral starts from t_ret=0 (which is correct) but 
+        # it is assumed that omega(t_ret=0) = 0
+        # the alternative solution of passing only the causal indices to the integral
+        # has a wrong initial phase as well since it starts the integral from
+        # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
+        # and integrating from there
+        ind_non_causal = t<0
+        B[ind_non_causal] = 0
+        t_traj[ind_non_causal] = 0
+        E[ind_non_causal] = 1.0
+        pitch[ind_non_causal] = np.pi/2
+        
+        
+class KassSimulation(ElectronSimulator):
+    
+    def __init__(self, file_name, interpolation='spline', decimation_factor=1):
+        ElectronSimulator.__init__(self)
+        
+        if interpolation != 'nearest' and interpolation != 'spline':
+            raise ValueError('interpolation must be either "nearest" or "spline"')
+            
+        self.decimation_factor = decimation_factor
+        self.interpolation = interpolation
+        self._read_kass_sim(file_name)
+        self._interpolate()
+        
+    def simulate(self, t):
+        
+        print('Using Kassiopeia simulated trajectory')
+        
+        if self.interpolation=='spline':
+            
+            print('Spline interpolation')
+            
+            t_traj = t
+            B = self.B_f(t)
+            pitch = self.pitch_f(t)
+            E_kin = self.E_f(t)
+            coords = self.coords_f(t)
+            
+        else:
+            
+            print('Nearest neighbor interpolation')
 
-    return (y[2:] - y[:-2])/(2*dx) # = d/dx y[1:-1]
+            t_traj, sample_ind = find_nearest_samples2d(t, self.electron_sim.t)
+            
+            B = self.electron_sim.B_vals[sample_ind]
+            pitch = self.electron_sim.pitch[sample_ind]
+            E_kin = self.electron_sim.E_kin[sample_ind]
+            coords = self.electron_sim.coords[sample_ind]
 
-def simulate_electron(electron, sampler, trap, N):
+        return coords, t_traj, B, E_kin, pitch, self.electron_sim.B_direction
+        
+    def get_sample_time_trajectory(self, t_sample):
+        
+        if self.interpolation=='spline':
+            t = t_sample
+            coords = self.coords_f(t)
+        else:
+            #nearest neighbor interpolation
+            t, sample_ind = find_nearest_samples(t_sample, self.electron_sim.t)
+            coords = self.electron_sim.coords[sample_ind]
+        
+        return t, coords
+        
+    def _interpolate(self):
+        
+        if self.interpolation == 'spline':
+            self.coords_f = interp1d(self.electron_sim.t, self.electron_sim.coords, 
+                        kind='cubic', axis=0, bounds_error=False, fill_value='extrapolate')
+                        
+            self.B_f = interp1d(self.electron_sim.t, self.electron_sim.B_vals, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+            self.pitch_f = interp1d(self.electron_sim.t, self.electron_sim.pitch, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+            self.E_f = interp1d(self.electron_sim.t, self.electron_sim.E_kin, kind='cubic', 
+                            bounds_error=False, fill_value='extrapolate')
+        
+    def _read_kass_sim(self, name):
+        file_input = uproot.open(name)
 
-    t = sampler(N+2)
-    t = t-t[1]
-    coords = trap.trajectory(electron)(t)
-    B_vals = trap.B_field(coords[:,2])
-    vz = differentiate(coords[:,2], sampler.dt)
-    pitch = np.arccos(vz/electron.v0)
+        tree = file_input['component_step_world_DATA']
+        branches = tree.arrays()
 
-    return ElectronSim(coords[1:-1], t[1:-1], B_vals[1:-1], electron.E_kin, pitch)
+        def data(key):
+            return np.array(branches[key][:-1:self.decimation_factor])
 
-def read_kass_sim(name):
+        t = data('time')
 
-    file_input = uproot.open(name)
+        x = data('guiding_center_position_x')
+        y = data('guiding_center_position_y')
+        z = data('guiding_center_position_z')
 
-    tree = file_input['component_step_world_DATA']
-    branches = tree.arrays()
+        B_x = data('magnetic_field_x')
+        B_y = data('magnetic_field_y')
+        B_z = data('magnetic_field_z')
 
-    def data(key):
-        return np.array(branches[key][:])
+        px = data('momentum_x')
+        py = data('momentum_y')
+        pz = data('momentum_z')
 
-    t = data(b'time')
+        E_kin = data('kinetic_energy')
 
-    x = data(b'guiding_center_position_x')
-    y = data(b'guiding_center_position_y')
-    z = data(b'guiding_center_position_z')
+        B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
+        p = np.sqrt(px**2 + py**2 + pz**2)
+        pitch = np.arccos(pz/p)
 
-    B_x = data(b'magnetic_field_x')
-    B_y = data(b'magnetic_field_y')
-    B_z = data(b'magnetic_field_z')
+        coords = get_pos(x, y, z)
+        
+        B_direction = np.array([B_x[0], B_y[0], B_z[0]])/B_vals[0]
 
-    px = data(b'momentum_x')
-    py = data(b'momentum_y')
-    pz = data(b'momentum_z')
-
-    E_kin = data(b'kinetic_energy')
-
-    B_vals = np.sqrt(B_x**2 + B_y**2 + B_z**2)
-    p = np.sqrt(px**2 + py**2 + pz**2)
-    pitch = np.arccos(pz/p)
-
-    coords = get_pos(x, y, z)
-
-    return ElectronSim(coords, t, B_vals, E_kin[0], pitch)
+        self.electron_sim = ElectronSim(coords, t, B_vals, E_kin, pitch, B_direction)
 
 
+
+class AnalyticSimulation(ElectronSimulator):
+    
+    def __init__(self, trap, electron, N, t_max):
+        ElectronSimulator.__init__(self)
+        
+        self.coords_f = trap.trajectory(electron)
+        self.electron = electron
+        self.B_f = trap.B_field
+        self.pitch_f = trap.pitch(electron)
+        self._get_initial_sim(N, t_max)
+        
+    def simulate(self, t):
+        
+        coords = self.coords_f(t)
+        B_vals = self.B_f(coords[...,2])
+        pitch = self.pitch_f(t)
+        B_direction = np.array([0,0,1])
+
+        E_kin = get_energy(self.electron.E_kin, t, B_vals, pitch)
+        
+        return coords, t, B_vals, E_kin, pitch, B_direction
+        
+    def get_sample_time_trajectory(self, t_sample):
+        
+        t = t_sample
+        coords = self.coords_f(t)
+        
+        return t, coords
+
+    def _get_initial_sim(self, N, t_max):
+        
+        dt = t_max/N
+        sampling_rate = 1/dt
+        clock = Clock(sampling_rate)
+        data = self.simulate(clock(N))
+        self.electron_sim = ElectronSim(*data)
+        
