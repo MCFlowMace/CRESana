@@ -22,8 +22,21 @@ class RetardedSimCalculator(ABC):
         
         self.positions = positions
 
-    @abstractmethod
     def __call__(self, t_sample, electron_simulator):
+        
+        t_ret = self.get_retarded_time(t_sample, electron_simulator)
+        ind_non_causal = t_ret<0
+        t_ret[ind_non_causal] = 0.
+
+        retarded_electron_sim = electron_simulator(t_ret)
+        
+        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
+        
+        d[ind_non_causal] = np.inf #makes the received power 0 later on -> no signal before the radiation arrives
+        return retarded_electron_sim, t_sample, d_vec, d
+        
+    @abstractmethod
+    def get_retarded_time(self, t_sample, electron_simulator):
         pass
         
     def calc_d_vec_and_abs(self, coords):
@@ -47,21 +60,11 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
             
         self.order = order
         
-    def __call__(self, t_sample, electron_simulator):
+    def get_retarded_time(self, t_sample, electron_simulator):
         
         t, coords = electron_simulator.get_sample_time_trajectory(t_sample)
         
         d_vec, d = self.calc_d_vec_and_abs(coords)
-        
-        t_ret_initial = self.get_retarded_time(t, d)
-                                                
-        retarded_electron_sim = electron_simulator(t_ret_initial)
-        
-        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
-                                            
-        return retarded_electron_sim, t, d_vec, d
-        
-    def get_retarded_time(self, t, d):
 
         def t_ret_0(t, d):
             
@@ -105,19 +108,6 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
     def __init__(self, positions):
         
         RetardedSimCalculator.__init__(self, positions)
-    
-    def __call__(self, t_sample, electron_simulator):
-
-        t_ret = self.get_retarded_time(t_sample, electron_simulator)
-        ind_non_causal = t_ret<0
-        t_ret[ind_non_causal] = 0.
-
-        retarded_electron_sim = electron_simulator(t_ret)
-        
-        d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
-        
-        d[ind_non_causal] = np.inf #makes the received power 0 later on -> no signal before the radiation arrives
-        return retarded_electron_sim, t_sample, d_vec, d
 
     def get_retarded_time(self, t_sample, electron_simulator):
         
