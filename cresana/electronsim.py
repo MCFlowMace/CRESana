@@ -133,12 +133,14 @@ class ElectronSimulator:
     def __call__(self, t):
         
         coords, t_traj, B, E_kin, pitch, B_direction = self.simulate(t)
-        self.enforce_causality(t, t_traj, B, E_kin, pitch)
+        #self.enforce_causality(t, t_traj, B, E_kin, pitch)
         
         return ElectronSim(coords, t_traj, B, E_kin, 
                                     pitch, self.electron_sim.B_direction)
         
     def enforce_causality(self, t, t_traj, B, E, pitch):
+        
+        #this is not used any more
         
         # setting to zero adds a small error for the initial phase in the phase integral
         # since this way the integral starts from t_ret=0 (which is correct) but 
@@ -148,10 +150,11 @@ class ElectronSimulator:
         # some t_ret>0. The correct solution would be to find the correct value of omega(t_ret=0)
         # and integrating from there
         ind_non_causal = t<0
-        B[ind_non_causal] = 0
         t_traj[ind_non_causal] = 0
-        E[ind_non_causal] = 1.0
-        pitch[ind_non_causal] = np.pi/2
+        _, _, B0, E0, pitch0, _ = self.simulate(0)
+        B[ind_non_causal] = B0
+        E[ind_non_causal] = E0 # 1.e-5
+        pitch[ind_non_causal] = pitch0 #np.pi/2
         
         
 class KassSimulation(ElectronSimulator):
@@ -273,7 +276,7 @@ class AnalyticSimulation(ElectronSimulator):
         B_vals = self.B_f(coords[...,2])
         pitch = self.pitch_f(t)
         B_direction = np.array([0,0,1])
-
+        
         E_kin = get_energy(self.electron.E_kin, t, B_vals, pitch)
         
         return coords, t, B_vals, E_kin, pitch, B_direction
