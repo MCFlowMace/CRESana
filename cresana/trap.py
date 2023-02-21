@@ -54,10 +54,13 @@ class Trap(ABC):
         
     def add_gradB_motion(self, electron, v_gradB, t):
         
-        r = np.sqrt(electron.x**2 + electron.y**2)
-        phi = np.arctan2(electron.y, electron.x)
+        r = electron.r
+        phi = np.arctan2(electron._y0, electron._x0)
         
-        w_gradB = v_gradB/r
+        if r>0:
+            w_gradB = v_gradB/r
+        else:
+            w_gradB = np.zeros_like(v_gradB)
             
         phase_gradB = get_integrated_phase(w_gradB, t)
         
@@ -142,7 +145,7 @@ class HarmonicTrap(Trap):
                                     
     def B_field(self, r, z):
         return np.sqrt(harmonic_potential(r, z, self._B0, self._L0)**2 
-                        + harmonic_Br(r, z, B0, L0)**2)
+                        + harmonic_Br(r, z, self._B0, self._L0)**2)
         
     def pitch(self, electron):
         omega = self._get_omega(electron)
@@ -156,18 +159,16 @@ class HarmonicTrap(Trap):
         return f
 
     def _get_omega(self, electron):
-        r = np.sqrt(electron.x**2 + electron.y**2)
-        return get_omega_harmonic(electron.v0, electron.pitch, r, self._L0)
+        return get_omega_harmonic(electron.v0, electron.pitch, electron.r, self._L0)
         
     def _get_z_max(self, electron):
-        r = np.sqrt(electron.x**2 + electron.y**2)
-        return get_z_max_harmonic(self._L0, electron.pitch, r)
+        return get_z_max_harmonic(self._L0, electron.pitch, electron.r)
         
     def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
         
     def get_grad_mag(self, electron, z):
-        r = np.sqrt(electron.x**2 + electron.y**2)
+        r = electron.r
         
         B = self.B_field(r, z)
         grad = self._get_orthogonal_grad(r, z, B)

@@ -79,6 +79,10 @@ class Electron:
     @property
     def pitch(self):
         return self._pitch
+        
+    @property
+    def r(self):
+        return np.sqrt(self._x0**2 + self._y0**2)
 
     @property
     def v0(self):
