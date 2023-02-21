@@ -21,6 +21,7 @@ E0_electron = 0.51099895e6
 speed_of_light = 299792458 # speed of light m/s
 epsilon0 = 55.26349406e6 # electric field constant e^2/(eV m)
 ev = 1.602176634e-19
+mu0 = 1.00000000055*4*np.pi*1e-7 #magnetic field constant N/A^2
 
 #~ #kass-locust
 #~ E0_electron = 0.510998918e6

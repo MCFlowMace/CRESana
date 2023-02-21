@@ -7,6 +7,7 @@ Date: February 18, 2023
 
 """
 
+from .physicsconstants import mu0
 
 class Coil:
     
