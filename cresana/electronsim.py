@@ -18,7 +18,7 @@ import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-from .cyclotronphysics import get_relativistic_velocity, get_energy, get_omega_cyclotron
+from .cyclotronphysics import get_relativistic_velocity, get_omega_cyclotron
 from .sampling import Clock
 
 def get_x(R, phi):
@@ -282,12 +282,8 @@ class AnalyticSimulation(ElectronSimulator):
         #coords = self.coords_f(t)
         #B_vals = self.B_f(coords[...,2])
         #pitch = self.pitch_f(t)
-        coords, pitch, B_vals = self.simulate_f(t)
+        coords, pitch, B_vals, E_kin, w = self.simulate_f(t)
         B_direction = np.array([0,0,1])
-        
-        E_kin = get_energy(self.electron.E_kin, t, B_vals, pitch)
-        
-        w = get_omega_cyclotron(B_vals, E_kin)
         
         return coords, t, B_vals, E_kin, pitch, B_direction, w
         

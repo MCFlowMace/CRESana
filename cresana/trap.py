@@ -21,6 +21,7 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 from .electronsim import ElectronSim
+from .cyclotronphysics import get_energy, get_omega_cyclotron
 
 
 def magnetic_moment(E_kin, pitch, B0):
@@ -59,7 +60,11 @@ class Trap(ABC):
             pitch = pitch_f(t)
             B, grad = self.get_grad_mag(electron, coords[...,2])
             
-            return coords, pitch, B
+            E_kin = get_energy(electron.E_kin, t, B, pitch)
+        
+            w = get_omega_cyclotron(B, E_kin)
+            
+            return coords, pitch, B, E_kin, w
         
         return f
 
