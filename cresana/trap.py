@@ -21,12 +21,14 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 from .electronsim import ElectronSim
-from .cyclotronphysics import get_energy, get_omega_cyclotron
+from .cyclotronphysics import get_energy, get_omega_cyclotron, get_v_gradB
 
 
 def magnetic_moment(E_kin, pitch, B0):
     return E_kin * np.sin(pitch)**2/B0
-    
+
+def get_integrated_phase(w, t):
+    return cumtrapz(w, x=t, initial=0.0)    
 
 class Trap(ABC):
 
@@ -50,6 +52,17 @@ class Trap(ABC):
     def get_grad_mag(self, electron, z):
         pass
         
+    def add_gradB_motion(self, electron, v_gradB, t):
+        
+        r = np.sqrt(electron.x**2 + electron.y**2)
+        phi = np.arctan2(electron.y, electron.x)
+        
+        w_gradB = v_gradB/r
+            
+        phase_gradB = get_integrated_phase(w_gradB, t)
+        
+        return r*np.cos(phase_gradB+phi), r*np.sin(phase_gradB+phi)
+        
     def simulate(self, electron):
         
         coords_f = self.trajectory(electron)
@@ -63,6 +76,9 @@ class Trap(ABC):
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
             w = get_omega_cyclotron(B, E_kin)
+            v_gradB = get_v_gradB(E_kin, pitch, B, w, grad)
+            
+            coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
             
             return coords, pitch, B, E_kin, w
         
