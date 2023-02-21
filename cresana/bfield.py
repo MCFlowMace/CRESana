@@ -7,6 +7,10 @@ Date: February 18, 2023
 
 """
 
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator
+from scipy.special import ellipk, ellipe, ellipkm1
+
 from .physicsconstants import mu0
 
 class Coil:
