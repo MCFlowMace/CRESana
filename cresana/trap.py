@@ -10,6 +10,7 @@ Date: August 11, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
+from warnings import warn
 
 from scipy.signal import sawtooth, square
 from scipy.optimize import root_scalar
@@ -33,7 +34,7 @@ class Trap(ABC):
         pass
 
     @abstractmethod
-    def B_field(self, z):
+    def B_field(self, r, z):
         pass
     
     @abstractmethod
@@ -45,8 +46,15 @@ class Trap(ABC):
         pass
         
 
-def harmonic_potential(z, B0, L0):
-    return B0 * ( 1 + z**2/L0**2)
+def harmonic_potential(r, z, B0, L0):
+    a1 = B0
+    a3 = B0/(3*L0**2)
+    return a1 - 3/2*a3*(r**2 - 2*z**2)
+    
+    
+def harmonic_Br(r, z, B0, L0):
+    a3 = B0/(3*L0**2)
+    return -3*r*z*a3
     
 
 def flat_potential(z, B0):
@@ -70,13 +78,18 @@ def get_z_flat(t, z_max, omega, phi):
     return z_max*sawtooth(t*omega + np.pi/2 + phi, width=0.5)
         
 
-def get_omega_harmonic(v0, pitch, L0):
-    return v0*np.sin(pitch)/L0
+def get_omega_harmonic(v0, pitch, r, L0):
+    return v0*np.sin(pitch)/L0*np.sqrt(1/(1-r**2/(2*L0**2)))
     
 
-def get_z_max_harmonic(L0, pitch):
-    return L0/np.tan(pitch)
+def get_z_max_harmonic(L0, pitch, r):
+    return np.sqrt(L0**2-0.5*r**2)/np.tan(pitch)
     
+    
+#def f_gradB():
+    
+    #R_g**2*omega_c/(2*B*r)*grad
+#    (v0*sin(theta))**2/(2*B*r*omega_c)*grad
 
 class HarmonicTrap(Trap):
 
@@ -94,8 +107,9 @@ class HarmonicTrap(Trap):
                                     np.ones_like(t)*electron._y0,
                                     get_z_harmonic(t, z_max, omega, phi0))
                                     
-    def B_field(self, z):
-        return harmonic_potential(z, self._B0, self._L0)
+    def B_field(self, r, z):
+        return np.sqrt(harmonic_potential(r, z, self._B0, self._L0)**2 
+                        + harmonic_Br(r, z, B0, L0)**2)
         
     def pitch(self, electron):
         omega = self._get_omega(electron)
@@ -107,12 +121,14 @@ class HarmonicTrap(Trap):
             return np.arccos(vz/electron.v0)
         
         return f
-        
+
     def _get_omega(self, electron):
-        return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
+        r = np.sqrt(electron.x**2 + electron.y**2)
+        return get_omega_harmonic(electron.v0, electron.pitch, r, self._L0)
         
     def _get_z_max(self, electron):
-        return get_z_max_harmonic(self._L0, electron.pitch)
+        r = np.sqrt(electron.x**2 + electron.y**2)
+        return get_z_max_harmonic(self._L0, electron.pitch, r)
         
     def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
@@ -145,7 +161,7 @@ class BoxTrap(Trap):
         
         return f
         
-    def B_field(self, z):
+    def B_field(self, r, z):
         B = flat_potential(z, self._B0)
 
         B[z>self._L/2] = np.inf
@@ -166,6 +182,7 @@ class BoxTrap(Trap):
 class BathtubTrap(Trap):
 
     def __init__(self, B0, L, L0):
+        warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
         self._B0 = B0
         self._L = L
         self._L0 = L0
@@ -175,7 +192,7 @@ class BathtubTrap(Trap):
                                     np.ones_like(t)*electron._y0,
                                     self._get_z(electron, t))
 
-    def B_field(self, z):
+    def B_field(self, r, z):
         # in case float input is used
         z_np = np.expand_dims(z, 0)
 
