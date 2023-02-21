@@ -12,7 +12,7 @@ with open("README.md", "r") as fh:
 
 required = [
     "numpy",
-    "scipy",
+    "scipy", #>=1.9
     "uproot"
 ]
 
