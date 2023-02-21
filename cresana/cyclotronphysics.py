@@ -91,6 +91,7 @@ def get_energy(E_kin_initial, t, B, pitch):
     enum = (b + E_kin_initial)*np.exp(arg) - E_kin_initial
     
     return b*E_kin_initial/enum
+    
 
 #Other functions mostly for internal usage
 
@@ -258,7 +259,7 @@ class AnalyticCyclotronField:
         
         self.e_simulation = e_simulation
         # frequency is independent of point
-        self.w = get_omega_cyclotron(e_simulation.B_vals, e_simulation.E_kin)
+        self.w = e_simulation.w
         self.n_harmonic = n_harmonic
         
     @classmethod

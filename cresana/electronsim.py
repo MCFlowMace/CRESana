@@ -18,7 +18,7 @@ import uproot
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
-from .cyclotronphysics import get_relativistic_velocity, get_energy
+from .cyclotronphysics import get_relativistic_velocity, get_energy, get_omega_cyclotron
 from .sampling import Clock
 
 def get_x(R, phi):
@@ -108,13 +108,14 @@ class ElectronSim:
         Absolute B-field experienced by the electron.
     """
 
-    def __init__(self, coords, t, B_vals, E_kin, pitch, B_direction):
+    def __init__(self, coords, t, B_vals, E_kin, pitch, B_direction, w):
         self.coords = coords
         self.t = t
         self.B_vals = B_vals
         self.E_kin = E_kin
         self.pitch = pitch
         self.B_direction = B_direction
+        self.w = w
         
 
 class ElectronSimulator:
@@ -132,11 +133,11 @@ class ElectronSimulator:
         
     def __call__(self, t):
         
-        coords, t_traj, B, E_kin, pitch, B_direction = self.simulate(t)
+        coords, t_traj, B, E_kin, pitch, B_direction, w = self.simulate(t)
         #self.enforce_causality(t, t_traj, B, E_kin, pitch)
         
         return ElectronSim(coords, t_traj, B, E_kin, 
-                                    pitch, self.electron_sim.B_direction)
+                                    pitch, self.electron_sim.B_direction, w)
         
     def enforce_causality(self, t, t_traj, B, E, pitch):
         
@@ -194,8 +195,10 @@ class KassSimulation(ElectronSimulator):
             pitch = self.electron_sim.pitch[sample_ind]
             E_kin = self.electron_sim.E_kin[sample_ind]
             coords = self.electron_sim.coords[sample_ind]
+            
+        w = get_omega_cyclotron(B, E_kin)
 
-        return coords, t_traj, B, E_kin, pitch, self.electron_sim.B_direction
+        return coords, t_traj, B, E_kin, pitch, self.electron_sim.B_direction, w
         
     def get_sample_time_trajectory(self, t_sample):
         
@@ -254,8 +257,11 @@ class KassSimulation(ElectronSimulator):
         coords = get_pos(x, y, z)
         
         B_direction = np.array([B_x[0], B_y[0], B_z[0]])/B_vals[0]
+        
+        w = get_omega_cyclotron(B_vals, E_kin)
 
-        self.electron_sim = ElectronSim(coords, t, B_vals, E_kin, pitch, B_direction)
+        self.electron_sim = ElectronSim(coords, t, B_vals, E_kin, pitch, 
+                                        B_direction, w)
 
 
 
@@ -264,22 +270,26 @@ class AnalyticSimulation(ElectronSimulator):
     def __init__(self, trap, electron, N, t_max):
         ElectronSimulator.__init__(self)
         
-        self.coords_f = trap.trajectory(electron)
+        #self.coords_f = trap.trajectory(electron)
         self.electron = electron
-        self.B_f = trap.B_field
-        self.pitch_f = trap.pitch(electron)
+        #self.B_f = trap.B_field
+        #self.pitch_f = trap.pitch(electron)
+        self.simulate_f = trap.simulate(electron)
         self._get_initial_sim(N, t_max)
         
     def simulate(self, t):
         
-        coords = self.coords_f(t)
-        B_vals = self.B_f(coords[...,2])
-        pitch = self.pitch_f(t)
+        #coords = self.coords_f(t)
+        #B_vals = self.B_f(coords[...,2])
+        #pitch = self.pitch_f(t)
+        coords, pitch, B_vals = self.simulate_f(t)
         B_direction = np.array([0,0,1])
         
         E_kin = get_energy(self.electron.E_kin, t, B_vals, pitch)
         
-        return coords, t, B_vals, E_kin, pitch, B_direction
+        w = get_omega_cyclotron(B_vals, E_kin)
+        
+        return coords, t, B_vals, E_kin, pitch, B_direction, w
         
     def get_sample_time_trajectory(self, t_sample):
         

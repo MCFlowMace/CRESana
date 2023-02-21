@@ -45,6 +45,23 @@ class Trap(ABC):
     def get_f(self, electron):
         pass
         
+    @abstractmethod
+    def get_grad_mag(self, electron, z):
+        pass
+        
+    def simulate(self, electron):
+        
+        coords_f = self.trajectory(electron)
+        pitch_f = self.pitch(electron)
+        
+        def f(t):
+            coords = coords_f(t)
+            pitch = pitch_f(t)
+            B, grad = self.get_grad_mag(electron, coords[...,2])
+            
+            return coords, pitch, B
+        
+        return f
 
 def harmonic_potential(r, z, B0, L0):
     a1 = B0
@@ -85,11 +102,6 @@ def get_omega_harmonic(v0, pitch, r, L0):
 def get_z_max_harmonic(L0, pitch, r):
     return np.sqrt(L0**2-0.5*r**2)/np.tan(pitch)
     
-    
-#def f_gradB():
-    
-    #R_g**2*omega_c/(2*B*r)*grad
-#    (v0*sin(theta))**2/(2*B*r*omega_c)*grad
 
 class HarmonicTrap(Trap):
 
@@ -133,6 +145,22 @@ class HarmonicTrap(Trap):
     def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
         
+    def get_grad_mag(self, electron, z):
+        r = np.sqrt(electron.x**2 + electron.y**2)
+        
+        B = self.B_field(r, z)
+        grad = self._get_orthogonal_grad(r, z, B)
+        
+        return B, grad
+        
+    def _get_orthogonal_grad(self, r, z, B):
+        a3 = self._B0/(3*self._L0**2)
+        a1 = self._B0
+        grad = -0.75*r*a3*(12*r*z*a3 
+                        + (2*a1-3*(r**2 - 2*z**2)*a3)
+                         *(2*a1 - 3*(r**2 + 4*z**2)*a3))/B**2
+        
+        return grad
 
 class BoxTrap(Trap):
 
@@ -168,6 +196,13 @@ class BoxTrap(Trap):
         B[z<-self._L/2] = np.inf
 
         return B
+        
+    def get_grad_mag(self, electron, z):
+        
+        B = self.B_field(r, z)
+        grad = np.zeros_like(B)
+        
+        return B, grad
 
     def _get_omega(self, electron):
         return electron.v0*np.cos(electron.pitch)*np.pi/self._L
