@@ -14,8 +14,8 @@ from warnings import warn
 
 from scipy.signal import sawtooth, square
 from scipy.optimize import root_scalar
-from scipy.integrate import cumtrapz
-from scipy.interpolate import CubicSpline
+from scipy.integrate import cumtrapz, quad
+from scipy.interpolate import make_interp_spline
 import numpy as np
 
 from .physicsconstants import speed_of_light, E0_electron
@@ -359,6 +359,13 @@ class BathtubTrap(Trap):
             return pitch
             
         return f
+        
+    def get_grad_mag(self, electron, z):
+        
+        B = self.B_field(r, z)
+        grad = np.zeros_like(B)
+        
+        return B, grad
 
     def _get_omega(self, electron):
         return get_omega_harmonic(electron.v0, electron.pitch, self._L0)
@@ -414,7 +421,7 @@ class ArbitraryTrap(Trap):
 
         t_mod = t[1:-1] - t[1]
 
-        interpolation = CubicSpline(t_mod, z[1:-1], bc_type='clamped')
+        interpolation = make_interp_spline(t_mod, z[1:-1], bc_type='clamped')
 
         def z_f(t_in):
 
