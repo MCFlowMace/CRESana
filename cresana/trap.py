@@ -400,6 +400,7 @@ class ArbitraryTrap(Trap):
         self._b_field = b_field
         self._integration_steps = integration_steps
         self._root_rtol = root_rtol
+        self._T_buffer = {}
 
     def trajectory(self, electron):
         _, _, z_f = self._solve_trajectory(electron)
@@ -421,10 +422,12 @@ class ArbitraryTrap(Trap):
         return B
 
     def get_f(self, electron):
-        t, _, _ = self._solve_trajectory(electron)
-        #t_max = t[-1] - t[1]
+        if electron not in self._T_buffer:
+            self._solve_trajectory(electron)
+            
+        T = self._T_buffer[electron]
 
-        return 1/(4*t[-1])
+        return 1/T
 
     #~ def _solve_trajectory(self, electron):
         #~ z_root_guess = 1
@@ -504,5 +507,7 @@ class ArbitraryTrap(Trap):
             res[~negative] = interpolation(t_out[~negative])
 
             return res
+            
+        self._T_buffer[electron] = 4*t[-1]
         
         return t, z, z_f
