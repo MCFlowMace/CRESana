@@ -141,7 +141,7 @@ class MultiCoilField:
         grad[~B0] = 1/B_mag[~B0]**2*(Bz[~B0]**2*dBz_rho[~B0] - Br[~B0]**2*dBrho_z[~B0]
                                     +Bz[~B0]*Br[~B0]*(dBrho_rho[~B0]-dBz_z[~B0]))
         
-        return B, grad
+        return B_mag, grad
         
     
     def interpolate(self, rmax, zmax, nr, nz):
