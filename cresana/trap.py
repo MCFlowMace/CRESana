@@ -379,8 +379,10 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, b_field):
+    def __init__(self, b_field, integration_steps=1000, root_rtol=0.00001):
         self._b_field = b_field
+        self._integration_steps = integration_steps
+        self._root_rtol = root_rtol
 
     def trajectory(self, electron):
         _, _, z_f = self._solve_trajectory(electron)
@@ -443,3 +445,47 @@ class ArbitraryTrap(Trap):
 
         return t, z, z_f
         
+    def _solve_trajectory(self, electron):
+        
+        """
+        assuming the minimum is at z=0 and the profile is symmetric
+        """
+        
+        r = electron.r
+        
+        right = root_scalar(lambda z:np.sin(electron.pitch)**2*self.B_field(r, z)-self.B_field(r, 0), method='secant', x0=1., x1=0.0,rtol=self._root_rtol).root
+        
+        print('zmax', right)
+        
+        z_val = np.linspace(0, right, self._integration_steps)
+        integral = np.zeros_like(z_val)
+        
+        B_max = self.B_field(r, right)
+
+        for i in range(len(z_val)):
+            integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r, z)), 0,z_val[i])[0]
+
+        t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
+
+        interpolation = make_interp_spline(t, z_val, bc_type='clamped')
+        
+        def z_f(t_in):
+            
+            #periodical continuation under the assumption that the integral
+            #scans the first quarter period of the electron trajectory in a symmetric trap
+            t_end = t[-1]
+
+            t_out = t_in.copy()
+            t_out %= 4*t_end
+            t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
+            sign = np.sign(t_out[np.abs(t_out)>t_end])
+            t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
+
+            negative = t_out<0
+            res = np.empty_like(t_in)
+            res[negative] = -interpolation(-t_out[negative])
+            res[~negative] = interpolation(t_out[~negative])
+
+            return res
+        
+        return z_f, t[0], t[-1], t, z_val
