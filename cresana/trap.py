@@ -50,8 +50,8 @@ class Trap(ABC):
     def get_grad_mag(self, electron, z):
         pass
         
-    def get_pitch_sign(self, t):
-        T = 1/self.get_f()
+    def get_pitch_sign(self, electron, t):
+        T = 1/self.get_f(electron)
         sign = np.ones_like(t)
         period_fraction = (t%T)/T
         sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
@@ -61,7 +61,7 @@ class Trap(ABC):
     def get_pitch(self, electron, t, B):
         theta_0 = electron.pitch
         B0 = np.min(B)
-        sign = self.get_pitch_sign(t)
+        sign = self.get_pitch_sign(electron,t)
         theta = np.pi/2 - np.arcsin(np.sin(theta_0)*np.sqrt(B/B0))
         theta = sign*theta + np.pi/2
         return theta
@@ -157,6 +157,17 @@ class HarmonicTrap(Trap):
                                     get_z_harmonic(t, z_max, omega, phi0))
                                     
     def B_field(self, r, z):
+        """
+        the analytic harmonic field solution assumes in its integration that
+        B_mag \approx B_z -> B_r is negligible
+        However, this is not the case for higher radii
+        to prevent more errors with this incorrect solution the derived class method
+        B_field needs to provide the B_field that was assumed for the integration and not the actual B_mag
+        for the actual B_mag use absolute_B_field
+        """
+        return harmonic_potential(r, z, self._B0, self._L0)
+                        
+    def absolute_B_field(self, r, z):
         return np.sqrt(harmonic_potential(r, z, self._B0, self._L0)**2 
                         + harmonic_Br(r, z, self._B0, self._L0)**2)
         
