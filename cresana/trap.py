@@ -405,9 +405,9 @@ class ArbitraryTrap(Trap):
 
     def get_f(self, electron):
         t, _, _ = self._solve_trajectory(electron)
-        t_max = t[-1] - t[1]
+        #t_max = t[-1] - t[1]
 
-        return 1/(2*t_max)
+        return 1/(4*t[-1])
 
     #~ def _solve_trajectory(self, electron):
         #~ z_root_guess = 1
