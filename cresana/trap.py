@@ -41,10 +41,6 @@ class Trap(ABC):
     @abstractmethod
     def B_field(self, r, z):
         pass
-    
-    @abstractmethod
-    def pitch(self, electron):
-        pass
         
     @abstractmethod
     def get_f(self, electron):
@@ -405,9 +401,9 @@ class ArbitraryTrap(Trap):
     def trajectory(self, electron):
         _, _, z_f = self._solve_trajectory(electron)
 
-        return lambda t: get_pos(   np.zeros(t.shape),
-                            np.zeros(t.shape),
-                            z_f(t))
+        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+                                    np.ones_like(t)*electron._y0,
+                                    z_f(t))
 
     def B_field(self, r, z):
         if r.shape!=z.shape:
@@ -428,42 +424,11 @@ class ArbitraryTrap(Trap):
         T = self._T_buffer[electron]
 
         return 1/T
-
-    #~ def _solve_trajectory(self, electron):
-        #~ z_root_guess = 1
-        #~ E_kin = electron.E_kin
-        #~ mu = magnetic_moment(E_kin, electron.pitch, self._B0)
-
-        #~ def potential_difference(z):
-            #~ return E_kin - mu*self.B_field(z)
-
-        #~ left = root_scalar(potential_difference, method='secant', x0=-z_root_guess, x1=0.0)
-        #~ right = root_scalar(potential_difference, method='secant', x0=z_root_guess, x1=0.0)
-
-        #~ z = np.linspace(left.root+5e-14, right.root-5e-14, 100000)
-        #~ dz = z[1] - z[0]
-
-        #~ integrand = 1/np.sqrt(potential_difference(z))
-
-        #~ integral = cumtrapz(integrand, x=z, initial=0.0)
-
-        #~ t = integral * np.sqrt(E0_electron/2)/speed_of_light
-
-        #~ t_mod = t[1:-1] - t[1]
-
-        #~ interpolation = make_interp_spline(t_mod, z[1:-1], bc_type='clamped')
-
-        #~ def z_f(t_in):
-
-            #~ t_out = t_in.copy()
-
-            #~ t_out += t_mod[-1]/2
-            #~ t_out %= 2*t_mod[-1]
-            #~ t_out[t_out>t_mod[-1]] = 2*t_mod[-1] - t_out[t_out>t_mod[-1]]
-
-            #~ return interpolation(t_out)
-
-        #~ return t, z, z_f
+        
+    def get_grad_mag(self, electron, z):
+        r = electron.r
+        pos = np.stack((np.ones_like(z)*r,z),axis=-1)
+        return self._b_field.get_grad_mag(pos)
         
     def _solve_trajectory(self, electron):
         
