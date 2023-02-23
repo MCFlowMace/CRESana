@@ -23,7 +23,7 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 from .electronsim import ElectronSim
-from .cyclotronphysics import get_energy, get_omega_cyclotron, get_v_gradB
+from .cyclotronphysics import get_energy, get_omega_cyclotron, get_v_gradB, get_relativistic_velocity
 
 
 def magnetic_moment(E_kin, pitch, B0):
@@ -470,4 +470,4 @@ class ArbitraryTrap(Trap):
             
         self._T_buffer[electron] = 4*t[-1]
         
-        return t, z, z_f
+        return t, z_val, z_f
