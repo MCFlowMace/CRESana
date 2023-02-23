@@ -379,9 +379,8 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, f, B0):
-        self._profile = f
-        self._B0 = B0
+    def __init__(self, b_field):
+        self._b_field = b_field
 
     def trajectory(self, electron):
         _, _, z_f = self._solve_trajectory(electron)
@@ -390,8 +389,17 @@ class ArbitraryTrap(Trap):
                             np.zeros(t.shape),
                             z_f(t))
 
-    def B_field(self, z):
-        return self._profile(z)
+    def B_field(self, r, z):
+        if r.shape!=z.shape:
+            shape = np.broadcast(r,z).shape
+            if r.ndim<z.ndim:
+                r = np.ones(shape=shape)*r
+            else:
+                z = np.ones(shape=shape)*z
+        pos = np.stack((r,z),axis=-1)
+        
+        B, _ = self._b_field.get_grad_mag(pos)
+        return B
 
     def get_f(self, electron):
         t, _, _ = self._solve_trajectory(electron)
@@ -434,3 +442,4 @@ class ArbitraryTrap(Trap):
             return interpolation(t_out)
 
         return t, z, z_f
+        
