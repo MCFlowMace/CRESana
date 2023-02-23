@@ -233,7 +233,7 @@ class BoxTrap(Trap):
         return B
         
     def get_grad_mag(self, electron, z):
-        
+        r = electron.r
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
         
