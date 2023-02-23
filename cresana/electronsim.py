@@ -10,6 +10,7 @@ Date: July 26, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
+from warnings import warn
 
 from scipy.signal import sawtooth
 from scipy.interpolate import interp1d
@@ -68,7 +69,10 @@ class Electron:
         self._pitch = pitch/180*np.pi
         self._x0 = r*np.cos(phi)
         self._y0 = r*np.sin(phi)
-        self._z0 = z0
+        #self._z0 = z0
+        self._z0 = 0
+        if z0!=0:
+            warn('Using z0!=0 is not supported by all traps in their current implementations! For this reason z0 is ignored. Sorry.')
         self._v_phi = v_phi
         self._v0 = get_relativistic_velocity(E_kin)
 
