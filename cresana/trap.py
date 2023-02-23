@@ -10,7 +10,9 @@ Date: August 11, 2021
 __all__ = []
 
 from abc import ABC, abstractmethod
+import warnings
 from warnings import warn
+warnings.simplefilter('default')
 
 from scipy.signal import sawtooth, square
 from scipy.optimize import root_scalar
