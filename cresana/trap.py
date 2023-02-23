@@ -409,41 +409,41 @@ class ArbitraryTrap(Trap):
 
         return 1/(2*t_max)
 
-    def _solve_trajectory(self, electron):
-        z_root_guess = 1
-        E_kin = electron.E_kin
-        mu = magnetic_moment(E_kin, electron.pitch, self._B0)
+    #~ def _solve_trajectory(self, electron):
+        #~ z_root_guess = 1
+        #~ E_kin = electron.E_kin
+        #~ mu = magnetic_moment(E_kin, electron.pitch, self._B0)
 
-        def potential_difference(z):
-            return E_kin - mu*self.B_field(z)
+        #~ def potential_difference(z):
+            #~ return E_kin - mu*self.B_field(z)
 
-        left = root_scalar(potential_difference, method='secant', x0=-z_root_guess, x1=0.0)
-        right = root_scalar(potential_difference, method='secant', x0=z_root_guess, x1=0.0)
+        #~ left = root_scalar(potential_difference, method='secant', x0=-z_root_guess, x1=0.0)
+        #~ right = root_scalar(potential_difference, method='secant', x0=z_root_guess, x1=0.0)
 
-        z = np.linspace(left.root+5e-14, right.root-5e-14, 100000)
-        dz = z[1] - z[0]
+        #~ z = np.linspace(left.root+5e-14, right.root-5e-14, 100000)
+        #~ dz = z[1] - z[0]
 
-        integrand = 1/np.sqrt(potential_difference(z))
+        #~ integrand = 1/np.sqrt(potential_difference(z))
 
-        integral = cumtrapz(integrand, x=z, initial=0.0)
+        #~ integral = cumtrapz(integrand, x=z, initial=0.0)
 
-        t = integral * np.sqrt(E0_electron/2)/speed_of_light
+        #~ t = integral * np.sqrt(E0_electron/2)/speed_of_light
 
-        t_mod = t[1:-1] - t[1]
+        #~ t_mod = t[1:-1] - t[1]
 
-        interpolation = make_interp_spline(t_mod, z[1:-1], bc_type='clamped')
+        #~ interpolation = make_interp_spline(t_mod, z[1:-1], bc_type='clamped')
 
-        def z_f(t_in):
+        #~ def z_f(t_in):
 
-            t_out = t_in.copy()
+            #~ t_out = t_in.copy()
 
-            t_out += t_mod[-1]/2
-            t_out %= 2*t_mod[-1]
-            t_out[t_out>t_mod[-1]] = 2*t_mod[-1] - t_out[t_out>t_mod[-1]]
+            #~ t_out += t_mod[-1]/2
+            #~ t_out %= 2*t_mod[-1]
+            #~ t_out[t_out>t_mod[-1]] = 2*t_mod[-1] - t_out[t_out>t_mod[-1]]
 
-            return interpolation(t_out)
+            #~ return interpolation(t_out)
 
-        return t, z, z_f
+        #~ return t, z, z_f
         
     def _solve_trajectory(self, electron):
         
@@ -488,4 +488,4 @@ class ArbitraryTrap(Trap):
 
             return res
         
-        return z_f, t[0], t[-1], t, z_val
+        return t, z, z_f
