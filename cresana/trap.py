@@ -54,7 +54,7 @@ class Trap(ABC):
     def get_grad_mag(self, electron, z):
         pass
         
-    def get_pitch_sign(t):
+    def get_pitch_sign(self, t):
         T = 1/self.get_f()
         sign = np.ones_like(t)
         period_fraction = (t%T)/T
@@ -62,10 +62,10 @@ class Trap(ABC):
         
         return sign
         
-    def get_pitch(electron, t, B):
+    def get_pitch(self, electron, t, B):
         theta_0 = electron.pitch
         B0 = np.min(B)
-        sign = get_pitch_sign(t)
+        sign = self.get_pitch_sign(t)
         theta = np.pi/2 - np.arcsin(np.sin(theta_0)*np.sqrt(B/B0))
         theta = sign*theta + np.pi/2
         return theta
