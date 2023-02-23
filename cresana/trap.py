@@ -33,6 +33,9 @@ def get_integrated_phase(w, t):
     return cumtrapz(w, x=t, initial=0.0)    
 
 class Trap(ABC):
+    
+    def __init__(self, add_gradB=True):
+        self.add_gradB = add_gradB
 
     @abstractmethod
     def trajectory(self, electron):
@@ -97,7 +100,8 @@ class Trap(ABC):
             w = get_omega_cyclotron(B, E_kin)
             v_gradB = get_v_gradB(E_kin, pitch, B, w, grad)
             
-            coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
+            if self.add_gradB:
+                coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
             
             return coords, pitch, B, E_kin, w
         
@@ -145,7 +149,8 @@ def get_z_max_harmonic(L0, pitch, r):
 
 class HarmonicTrap(Trap):
 
-    def __init__(self, B0, L0):
+    def __init__(self, B0, L0, add_gradB=True):
+        Trap.__init__(self, add_gradB)
         self._B0 = B0
         self._L0 = L0
 
@@ -213,7 +218,8 @@ class HarmonicTrap(Trap):
 
 class BoxTrap(Trap):
 
-    def __init__(self, B0, L):
+    def __init__(self, B0, L, add_gradB=True):
+        Trap.__init__(self, add_gradB)
         self._B0 = B0
         self._L = L
 
@@ -265,8 +271,9 @@ class BoxTrap(Trap):
 
 class BathtubTrap(Trap):
 
-    def __init__(self, B0, L, L0):
+    def __init__(self, B0, L, add_gradB=True):
         warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
+        Trap.__init__(self, add_gradB)
         self._B0 = B0
         self._L = L
         self._L0 = L0
@@ -406,7 +413,9 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, b_field, integration_steps=1000, root_rtol=0.00001, root_guess=[0.,1.]):
+    def __init__(self, b_field, add_gradB=True, integration_steps=1000, 
+                    root_rtol=0.00001, root_guess=[0.,1.]):
+        Trap.__init__(self, add_gradB)
         self._b_field = b_field
         self._integration_steps = integration_steps
         self._root_rtol = root_rtol
