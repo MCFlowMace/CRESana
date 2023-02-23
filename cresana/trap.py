@@ -406,10 +406,11 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, b_field, integration_steps=1000, root_rtol=0.00001):
+    def __init__(self, b_field, integration_steps=1000, root_rtol=0.00001, root_guess=[0.,1.]):
         self._b_field = b_field
         self._integration_steps = integration_steps
         self._root_rtol = root_rtol
+        self._root_guess = root_guess
         self._T_buffer = {}
 
     def trajectory(self, electron):
@@ -447,7 +448,10 @@ class ArbitraryTrap(Trap):
         
         r = electron.r
         
-        right = root_scalar(lambda z:np.sin(electron.pitch)**2*self.B_field(r, z)-self.B_field(r, 0), method='secant', x0=1., x1=0.0,rtol=self._root_rtol).root
+        right = root_scalar(lambda z:np.sin(electron.pitch)**2*self.B_field(r, z)-self.B_field(r, 0), 
+                            method='secant', x0=self._root_guess[0], 
+                            x1=self._root_guess[1], 
+                            rtol=self._root_rtol).root
         
         print('zmax', right)
         
