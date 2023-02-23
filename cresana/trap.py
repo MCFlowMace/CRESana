@@ -406,13 +406,8 @@ class ArbitraryTrap(Trap):
                                     z_f(t))
 
     def B_field(self, r, z):
-        if r.shape!=z.shape:
-            shape = np.broadcast(r,z).shape
-            if r.ndim<z.ndim:
-                r = np.ones(shape=shape)*r
-            else:
-                z = np.ones(shape=shape)*z
-        pos = np.stack((r,z),axis=-1)
+
+        pos = np.stack(np.broadcast_arrays(r,z),axis=-1)
         
         B, _ = self._b_field.get_grad_mag(pos)
         return B
