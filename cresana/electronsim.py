@@ -91,8 +91,20 @@ class Electron:
     @property
     def v0(self):
         return self._v0
+        
+    def _to_tuple(self):
+        return (self._E_kin, self._pitch, self._x0, self._y0, self._z0, self._v_phi)
+        
+    def __eq__(self, other):
+        return self._to_tuple()==other._to_tuple()
+        
+    def __hash__(self):
+        return hash(self._to_tuple())
 
     def __repr__(self):
+        return str(self)
+                
+    def __str__(self):
         return ("Kinetic energy : {0:10.4f} eV \n".format(self._E_kin)
                 +"Pitch angle:  {0:8.4f} ° \n".format(self._pitch/np.pi*180)
                 +"Velocity:  {0:14.2f} m/s \n".format(self._v0)
