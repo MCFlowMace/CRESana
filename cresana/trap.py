@@ -54,6 +54,22 @@ class Trap(ABC):
     def get_grad_mag(self, electron, z):
         pass
         
+    def get_pitch_sign(t):
+        T = 1/self.get_f()
+        sign = np.ones_like(t)
+        period_fraction = (t%T)/T
+        sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
+        
+        return sign
+        
+    def get_pitch(electron, t, B):
+        theta_0 = electron.pitch
+        B0 = np.min(B)
+        sign = get_pitch_sign(t)
+        theta = np.pi/2 - np.arcsin(np.sin(theta_0)*np.sqrt(B/B0))
+        theta = sign*theta + np.pi/2
+        return theta
+        
     def add_gradB_motion(self, electron, v_gradB, t):
         
         r = electron.r
@@ -71,12 +87,11 @@ class Trap(ABC):
     def simulate(self, electron):
         
         coords_f = self.trajectory(electron)
-        pitch_f = self.pitch(electron)
         
         def f(t):
             coords = coords_f(t)
-            pitch = pitch_f(t)
             B, grad = self.get_grad_mag(electron, coords[...,2])
+            pitch = self.get_pitch(electron, t, B)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
