@@ -62,7 +62,10 @@ class Trap(ABC):
         theta_0 = electron.pitch
         B0 = np.min(B)
         sign = self.get_pitch_sign(electron,t)
-        theta = np.pi/2 - np.arcsin(np.sin(theta_0)*np.sqrt(B/B0))
+        #there seems to be a numerics issue here -> round to 12 digits
+        #without that observed sintheta>1, which results in NaN
+        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0),12)
+        theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
         return theta
         
