@@ -414,12 +414,13 @@ class BathtubTrap(Trap):
 class ArbitraryTrap(Trap):
 
     def __init__(self, b_field, add_gradB=True, integration_steps=1000, 
-                    root_rtol=0.00001, root_guess=[0.,1.]):
+                    root_rtol=0.00001, root_guess_max=10., root_guess_steps=1000):
         Trap.__init__(self, add_gradB)
         self._b_field = b_field
         self._integration_steps = integration_steps
         self._root_rtol = root_rtol
-        self._root_guess = root_guess
+        self._root_guess_max = root_guess_max
+        self._root_guess_steps = root_guess_steps
         self._T_buffer = {}
 
     def trajectory(self, electron):
@@ -449,17 +450,35 @@ class ArbitraryTrap(Trap):
         pos = np.stack((np.ones_like(z)*r,z),axis=-1)
         return self._b_field.get_grad_mag(pos)
         
+    def adiabatic_difference(self,electron, z):
+        return np.sin(electron.pitch)**2*self.B_field(electron.r, z)-self.B_field(electron.r, 0.)
+        
+    def guess_root(self, electron):
+        z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
+        diff = self.adiabatic_difference(electron, z)
+        ind = np.argmax(diff>0)
+        
+        if ind==0:
+            raise RuntimeError('Found guess of root at z=0 -> Increase "root_guess_steps" or reduce "root_guess_max"!')
+        
+        if ind==len(z)-1:
+            raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
+            
+        return z[ind-1], z[ind]
+        
     def _solve_trajectory(self, electron):
         
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
         
+        root_guess = self.guess_root(electron)
+        
         r = electron.r
         
-        right = root_scalar(lambda z:np.sin(electron.pitch)**2*self.B_field(r, z)-self.B_field(r, 0), 
-                            method='secant', x0=self._root_guess[0], 
-                            x1=self._root_guess[1], 
+        right = root_scalar(lambda z: self.adiabatic_difference(electron,z), 
+                            method='secant', x0=root_guess[0], 
+                            x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
         print('zmax', right)
