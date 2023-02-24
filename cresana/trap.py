@@ -14,6 +14,7 @@ import warnings
 from warnings import warn
 warnings.simplefilter('default')
 
+
 from scipy.signal import sawtooth, square
 from scipy.optimize import root_scalar
 from scipy.integrate import cumtrapz, quad
@@ -67,7 +68,7 @@ class Trap(ABC):
         sign = self.get_pitch_sign(electron,t)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
-        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0),11)
+        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0),10)
         theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
         return theta
