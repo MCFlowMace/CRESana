@@ -10,6 +10,7 @@ Date: February 18, 2023
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.special import ellipk, ellipe, ellipkm1
+from warnings import warn
 
 from .physicsconstants import mu0
 
@@ -98,6 +99,33 @@ class MultiCoilField:
         self.background_field = background_field
         self.Bmag_f = None
         self.B_f = None
+        
+        
+    def _is_potential_well(self):
+        n = 0
+        for c in self.coils:
+            if c.current<0:
+                n+=1
+        
+        if n!=0 and n!=len(self.coils):
+            warn('It seems your trap is using coils with positive and negative currents!'
+            + 'This could be what you want, but "MultiCoilField.get_B_max was implemented'
+            + ' under the assumption that this does not happen so please check this again!')
+            
+        # the trap is a potential well if all coils have negative current
+        return n==len(self.coils)
+        
+    def get_B_max(self, r):
+        
+        if self._is_potential_well():
+            return self.background_field
+        else:
+            B_max = 0
+            for c in self.coils:
+                b = self.evaluate_B(np.array([r, c.z0]))
+                if b>B_max:
+                    B_max = b
+            return B_max
         
     def evaluate_B(self, pos, derivatives=False):
         

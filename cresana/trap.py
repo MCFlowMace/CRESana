@@ -467,11 +467,26 @@ class ArbitraryTrap(Trap):
             
         return z[ind-1], z[ind]
         
+    def _find_min_trapping_angle(self, electron):
+        B_max = self._b_field.get_B_max(electron.r)
+        B_min = self.B_field(electron.r, 0)
+        trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
+        return trapping_angle
+        
+    def _check_if_trapped(self, electron):
+        
+        min_trapping_angle = self._find_min_trapping_angle(electron)
+        
+        if min_trapping_angle>electron.pitch:
+            raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
+        
+        
     def _solve_trajectory(self, electron):
         
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
+        self._check_if_trapped(electron)
         
         root_guess = self.guess_root(electron)
         
