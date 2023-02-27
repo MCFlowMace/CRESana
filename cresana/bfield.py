@@ -69,7 +69,7 @@ class Coil:
             dBrho_z[on_axis] = 0
             
             dBrho_rho[~on_axis] = (-C*z[~on_axis]/(2*rho[~on_axis]**2*alpha[~on_axis]**4*beta[~on_axis]**3)
-                                   *((a**6 + r[~on_axis]**2*(2*rho[~on_axis]**2+z[~on_axis]**2) 
+                                   *((a**6 + r[~on_axis]**4*(2*rho[~on_axis]**2+z[~on_axis]**2) 
                                       + a**4*(3*z[~on_axis]**2 - 8*rho[~on_axis]**2) 
                                       + a**2*(5*rho[~on_axis]**4 - 4*rho[~on_axis]**2*z[~on_axis]**2 
                                               + 3*z[~on_axis]**4))*E_k2[~on_axis]
