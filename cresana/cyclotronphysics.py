@@ -111,6 +111,10 @@ def get_v_gradB(E_kin, pitch, B, w, grad):
     gamma = get_gamma(E_kin)
     return (v0*np.sin(pitch))**2/(2*B*w)*grad*np.sqrt(gamma)
     
+def get_v_curv(E_kin, pitch, w, curv):
+    v0 = get_relativistic_velocity(E_kin)
+    return (v0*np.cos(pitch))**2/w*curv
+    
 
 #Other functions mostly for internal usage
 

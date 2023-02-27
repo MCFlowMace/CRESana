@@ -24,7 +24,7 @@ import numpy as np
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
 from .electronsim import ElectronSim
-from .cyclotronphysics import get_energy, get_omega_cyclotron, get_v_gradB, get_relativistic_velocity
+from .cyclotronphysics import get_energy, get_omega_cyclotron, get_v_gradB, get_relativistic_velocity, get_v_curv
 
 
 def magnetic_moment(E_kin, pitch, B0):
@@ -96,13 +96,13 @@ class Trap(ABC):
         
         def f(t):
             coords = coords_f(t)
-            B, grad = self.get_grad_mag(electron, coords[...,2])
+            B, grad, curv = self.get_grad_mag(electron, coords[...,2])
             pitch = self.get_pitch(electron, t, B)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
             w = get_omega_cyclotron(B, E_kin)
-            v_gradB = -get_v_gradB(E_kin, pitch, B, w, grad)
+            v_gradB = -get_v_gradB(E_kin, pitch, B, w, grad) - get_v_curv(E_kin, pitch, w, curv)
             
             if self.add_gradB:
                 coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
@@ -438,7 +438,7 @@ class ArbitraryTrap(Trap):
 
         pos = np.stack(np.broadcast_arrays(r,z),axis=-1)
         
-        B, _ = self._b_field.get_grad_mag(pos)
+        B, _, _ = self._b_field.get_grad_mag(pos)
         return B
 
     def get_f(self, electron):
