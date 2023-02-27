@@ -102,7 +102,7 @@ class Trap(ABC):
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
             w = get_omega_cyclotron(B, E_kin)
-            v_gradB = get_v_gradB(E_kin, pitch, B, w, grad)
+            v_gradB = -get_v_gradB(E_kin, pitch, B, w, grad)
             
             if self.add_gradB:
                 coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
