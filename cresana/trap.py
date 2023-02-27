@@ -510,7 +510,6 @@ class ArbitraryTrap(Trap):
         else:
         
             z_val = np.linspace(0, right, self._integration_steps)
-            print(z_val)
             integral = np.zeros_like(z_val)
             
             B_max = self.B_field(r, right)
