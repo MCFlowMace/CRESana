@@ -55,10 +55,13 @@ class Trap(ABC):
         pass
         
     def get_pitch_sign(self, electron, t):
-        T = 1/self.get_f(electron)
+        f = self.get_f(electron)
         sign = np.ones_like(t)
-        period_fraction = (t%T)/T
-        sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
+        
+        if f!=0:
+            T = 1/self.get_f(electron)
+            period_fraction = (t%T)/T
+            sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
         
         return sign
         
@@ -425,7 +428,7 @@ class ArbitraryTrap(Trap):
         self._T_buffer = {}
 
     def trajectory(self, electron):
-        _, _, z_f = self._solve_trajectory(electron)
+        z_f = self._solve_trajectory(electron)
 
         return lambda t: get_pos(   np.ones_like(t)*electron._x0,
                                     np.ones_like(t)*electron._y0,
@@ -499,37 +502,45 @@ class ArbitraryTrap(Trap):
         
         print('zmax', right)
         
-        z_val = np.linspace(0, right, self._integration_steps)
-        integral = np.zeros_like(z_val)
-        
-        B_max = self.B_field(r, right)
-
-        for i in range(len(z_val)):
-            integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r, z)), 0,z_val[i])[0]
-
-        t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
-
-        interpolation = make_interp_spline(t, z_val, bc_type='clamped')
-        
-        def z_f(t_in):
+        if right==0:
             
-            #periodical continuation under the assumption that the integral
-            #scans the first quarter period of the electron trajectory in a symmetric trap
-            t_end = t[-1]
-
-            t_out = t_in.copy()
-            t_out %= 4*t_end
-            t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
-            sign = np.sign(t_out[np.abs(t_out)>t_end])
-            t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
-
-            negative = t_out<0
-            res = np.empty_like(t_in)
-            res[negative] = -interpolation(-t_out[negative])
-            res[~negative] = interpolation(t_out[~negative])
-
-            return res
+            z_f = lambda t: np.zeros_like(t)
+            self._T_buffer[electron] = float('inf')
             
-        self._T_buffer[electron] = 4*t[-1]
+        else:
         
-        return t, z_val, z_f
+            z_val = np.linspace(0, right, self._integration_steps)
+            print(z_val)
+            integral = np.zeros_like(z_val)
+            
+            B_max = self.B_field(r, right)
+
+            for i in range(len(z_val)):
+                integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r, z)), 0,z_val[i])[0]
+
+            t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
+
+            interpolation = make_interp_spline(t, z_val, bc_type='clamped')
+            
+            def z_f(t_in):
+                
+                #periodical continuation under the assumption that the integral
+                #scans the first quarter period of the electron trajectory in a symmetric trap
+                t_end = t[-1]
+
+                t_out = t_in.copy()
+                t_out %= 4*t_end
+                t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
+                sign = np.sign(t_out[np.abs(t_out)>t_end])
+                t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
+
+                negative = t_out<0
+                res = np.empty_like(t_in)
+                res[negative] = -interpolation(-t_out[negative])
+                res[~negative] = interpolation(t_out[~negative])
+
+                return res
+                
+            self._T_buffer[electron] = 4*t[-1]
+        
+        return z_f
