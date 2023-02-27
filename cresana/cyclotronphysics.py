@@ -31,9 +31,22 @@ def get_relativistic_velocity(E_kin):
     return np.sqrt(1-relative_energy**2)*speed_of_light
     
 
+def get_gyration_radius(B, E_kin, pitch):
+    
+    w = get_omega_cyclotron(B, E_kin)
+    v = get_relativistic_velocity(E_kin)
+    
+    return v*np.sin(pitch)/w
+    
+
 def get_beta(E_kin):
     v_0 = get_relativistic_velocity(E_kin)
     return v_0/speed_of_light
+    
+def get_gamma(E_kin):
+    beta = get_beta(E_kin)
+    
+    return np.sqrt(1/(1-beta**2))
     
     
 def get_wavelength(w):
@@ -95,7 +108,8 @@ def get_energy(E_kin_initial, t, B, pitch):
     
 def get_v_gradB(E_kin, pitch, B, w, grad):
     v0 = get_relativistic_velocity(E_kin)
-    return (v0*np.sin(pitch))**2/(2*B*w)*grad
+    gamma = get_gamma(E_kin)
+    return (v0*np.sin(pitch))**2/(2*B*w)*grad*np.sqrt(gamma)
     
 
 #Other functions mostly for internal usage
