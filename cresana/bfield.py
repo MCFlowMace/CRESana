@@ -8,7 +8,7 @@ Date: February 18, 2023
 """
 
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator, make_interp_spline
 from scipy.special import ellipk, ellipe, ellipkm1
 from warnings import warn
 
@@ -175,7 +175,22 @@ class MultiCoilField:
         curv[~B0] = 1/B_mag[~B0]**3*(Bz[~B0]*(Br[~B0]*dBrho_rho[~B0] + Bz[~B0]*dBrho_z[~B0]) - Br[~B0]*(Bz[~B0]*dBz_rho[~B0] + Bz[~B0]*dBz_rho[~B0]))
         
         return B_mag, grad, curv
+    
+    def gen_field_line(self, r0, z0, dt, zmax):
         
+        pos_z = [z0]
+        pos_r = [r0]
+        while pos_z[-1]<zmax:
+            B = self.evaluate_B(np.array([pos_r[-1], pos_z[-1]]))
+            B_mag = np.sqrt(B[0]**2 + B[1]**2)
+            dz = B[1]/B_mag*dt
+            dr = B[0]/B_mag*dt
+            pos_z.append(pos_z[-1]+dz)
+            pos_r.append(pos_r[-1]+dr)
+            
+        line = make_interp_spline(pos_z, pos_r, bc_type='clamped')
+
+        return line
     
     def interpolate(self, rmax, zmax, nr, nz):
         
