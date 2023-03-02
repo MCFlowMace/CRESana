@@ -76,15 +76,17 @@ class Trap(ABC):
         theta = sign*theta + np.pi/2
         return theta
         
-    def add_gradB_motion(self, electron, v_gradB, t):
+   # def add_gradB_motion(self, electron, v_gradB, t):
         
-        r = electron.r
-        phi = np.arctan2(electron._y0, electron._x0)
+   #     r = electron.r
+   #     phi = np.arctan2(electron._y0, electron._x0)
+    def add_gradB_motion(self, r, v_gradB, t):
         
-        if r>0:
-            w_gradB = v_gradB/r
-        else:
-            w_gradB = np.zeros_like(v_gradB)
+        phi = 0.
+        
+        zero = r==0
+        w_gradB = np.zeros_like(v_gradB)
+        w_gradB[~zero] = v_gradB[~zero]/r[~zero]
             
         phase_gradB = get_integrated_phase(w_gradB, t)
         
@@ -105,7 +107,8 @@ class Trap(ABC):
             v_gradB = -get_v_gradB(E_kin, pitch, B, w, grad) - get_v_curv(E_kin, pitch, w, curv)
             
             if self.add_gradB:
-                coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
+                #coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
+                coords[...,0], coords[...,1] = self.add_gradB_motion(coords[:,0], v_gradB, t)
             
             return coords, pitch, B, E_kin, w
         
@@ -209,7 +212,7 @@ class HarmonicTrap(Trap):
         B = self.B_field(r, z)
         grad = self._get_orthogonal_grad(r, z, B)
         
-        return B, grad
+        return B, grad, 0
         
     def _get_orthogonal_grad(self, r, z, B):
         a3 = self._B0/(3*self._L0**2)
@@ -428,11 +431,16 @@ class ArbitraryTrap(Trap):
         self._T_buffer = {}
 
     def trajectory(self, electron):
-        z_f = self._solve_trajectory(electron)
+        z_f, r_f = self._solve_trajectory(electron)
+        
+        def coords(t):
+            z = z_f(t)
+            r = r_f(np.abs(z))
+            y = np.zeros_like(t)
+            
+            return get_pos(r, y, z)
 
-        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
-                                    np.ones_like(t)*electron._y0,
-                                    z_f(t))
+        return coords
 
     def B_field(self, r, z):
 
@@ -482,7 +490,7 @@ class ArbitraryTrap(Trap):
         
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
-        
+            
         
     def _solve_trajectory(self, electron):
         
@@ -501,6 +509,9 @@ class ArbitraryTrap(Trap):
                             rtol=self._root_rtol).root
         
         print('zmax', right)
+        
+        dz = right/self._integration_steps
+        r_f = self._b_field.gen_field_line(electron.r, 0., 0.001, right)
         
         if right==0:
             
@@ -542,4 +553,4 @@ class ArbitraryTrap(Trap):
                 
             self._T_buffer[electron] = 4*t[-1]
         
-        return z_f
+        return z_f, r_f
