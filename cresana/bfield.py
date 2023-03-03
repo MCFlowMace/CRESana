@@ -24,7 +24,7 @@ class Coil:
         self.C = mu0*self.current*self.turns/np.pi
 
     def __str__(self):
-        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}, length={self.length}'
+        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}'
         
     def __repr__(self):
         return str(self)
@@ -243,3 +243,55 @@ class MultiCoilField:
         pos_c = self.to_cylindric(pos)
         
         return self.B_f((pos_c[...,0], pos_c[...,1]))[...,1]
+        
+
+def get_8_coil_flat_trap(z0, I0, B_background):
+    """Get a MultiCoildField instance with 8 coils that produces a 
+    trap with a flat central field region.
+    
+    ----------
+    z0 : float
+        Approximate position of the potential wall in m.
+    I0 : float
+        Factor that scales the current used for the coils. All currents
+        for all coils scale with this parameter.
+    B_background    : float
+        Background magnetic field in T.
+    """
+
+    # 8 coils on a sphere # Williams-Cain
+    b1 = z0
+    I1 = I0*9/4/0.9999914835119487*3*5 
+
+    b2 = b1
+    b3 = b1
+    b4 = b1
+    x1 = 0.1652754
+    x2 = 0.4779250
+    x3 = 0.7387739
+    x4 = 0.9195342
+
+    I2 = 0.891626*I1
+    I3 = 0.686604*I1
+    I4 = 0.406992*I1
+    Z1 = b1*x1
+    R1 = b1*np.sqrt(1-x1**2)
+    Z2 = b2*x2
+    R2 = b2*np.sqrt(1-x2**2)
+    Z3 = b3*x3
+    R3 = b3*np.sqrt(1-x3**2)
+    Z4 = b4*x4
+    R4 = b4*np.sqrt(1-x4**2)
+
+    coils = [   Coil(R1, Z1, 1, I1),
+                Coil(R1, -Z1, 1, I1),
+                Coil(R2, Z2, 1, I2),
+                Coil(R2, -Z2, 1, I2),
+                Coil(R3, Z3, 1, I3),
+                Coil(R3, -Z3, 1, I3),
+                Coil(R4, Z4, 1, I4),
+                Coil(R4, -Z4, 1, I4)]
+
+    return MultiCoilField(coils, B_background)
+    
+    
