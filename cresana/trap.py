@@ -98,7 +98,8 @@ class Trap(ABC):
         
         def f(t):
             r, z = coords_f(t)
-            B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
+            #B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
+            B, grad, curv = self.get_grad_mag(r, z)
             pitch = self.get_pitch(electron, t, B)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
@@ -428,7 +429,8 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, b_field, add_gradB=True, add_curvB=True, integration_steps=1000, 
+    def __init__(self, b_field, add_gradB=True, add_curvB=True,
+                    integration_steps=1000, field_line_step_size=0.0001,
                     root_rtol=0.00001, root_guess_max=10., root_guess_steps=1000):
         Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
@@ -436,6 +438,7 @@ class ArbitraryTrap(Trap):
         self._root_rtol = root_rtol
         self._root_guess_max = root_guess_max
         self._root_guess_steps = root_guess_steps
+        self._field_line_step_size = field_line_step_size
         self._T_buffer = {}
 
     def trajectory(self, electron):
@@ -468,12 +471,12 @@ class ArbitraryTrap(Trap):
         pos = np.stack((r,z),axis=-1)
         return self._b_field.get_grad_mag(pos)
         
-    def adiabatic_difference(self,electron, z):
-        return np.sin(electron.pitch)**2*self.B_field(electron.r, z)-self.B_field(electron.r, 0.)
+    def adiabatic_difference(self,r_f, z, pitch):
+        return np.sin(pitch)**2*self.B_field(r_f(z), z)-self.B_field(r_f(0), 0.)
         
-    def guess_root(self, electron):
+    def guess_root(self, r_f, pitch):
         z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
-        diff = self.adiabatic_difference(electron, z)
+        diff = self.adiabatic_difference(r_f, z, pitch)
         ind = np.argmax(diff>0)
         
         if ind==0:
@@ -485,6 +488,8 @@ class ArbitraryTrap(Trap):
         return z[ind-1], z[ind]
         
     def _find_min_trapping_angle(self, electron):
+        #might need to be checked again for potential walls
+        #after the addition of r(z) due to the field lines
         B_max = self._b_field.get_B_max(electron.r)
         B_min = self.B_field(electron.r, 0)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
@@ -503,21 +508,21 @@ class ArbitraryTrap(Trap):
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
+        r_f = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
         self._check_if_trapped(electron)
         
-        root_guess = self.guess_root(electron)
+        root_guess = self.guess_root(r_f, electron.pitch)
         
         r = electron.r
         
-        right = root_scalar(lambda z: self.adiabatic_difference(electron,z), 
+        right = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch), 
                             method='secant', x0=root_guess[0], 
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
         print('zmax', right)
         
-        dz = right/self._integration_steps
-        r_f = self._b_field.gen_field_line(electron.r, 0., 0.001, right)
+        #dz = right/self._integration_steps
         
         if right==0:
             
@@ -529,10 +534,10 @@ class ArbitraryTrap(Trap):
             z_val = np.linspace(0, right, self._integration_steps)
             integral = np.zeros_like(z_val)
             
-            B_max = self.B_field(r, right)
+            B_max = self.B_field(r_f(right), right)
 
             for i in range(len(z_val)):
-                integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r, z)), 0,z_val[i])[0]
+                integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r_f(z), z)), 0,z_val[i])[0]
 
             t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
 
