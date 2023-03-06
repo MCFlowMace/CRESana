@@ -35,8 +35,9 @@ def get_integrated_phase(w, t):
 
 class Trap(ABC):
     
-    def __init__(self, add_gradB=True):
+    def __init__(self, add_gradB=True, add_curvB=True):
         self.add_gradB = add_gradB
+        self.add_curvB = add_curvB
 
     @abstractmethod
     def trajectory(self, electron):
@@ -51,7 +52,7 @@ class Trap(ABC):
         pass
         
     @abstractmethod
-    def get_grad_mag(self, electron, z):
+    def get_grad_mag(self, r, z):
         pass
         
     def get_pitch_sign(self, electron, t):
@@ -80,35 +81,41 @@ class Trap(ABC):
         
    #     r = electron.r
    #     phi = np.arctan2(electron._y0, electron._x0)
-    def add_gradB_motion(self, r, v_gradB, t):
-        
-        phi = 0.
+    def calc_xy(self, r, phi, v_drift, t):
         
         zero = r==0
-        w_gradB = np.zeros_like(v_gradB)
-        w_gradB[~zero] = v_gradB[~zero]/r[~zero]
+        w_drift = np.zeros_like(v_drift)
+        w_drift[~zero] = v_drift[~zero]/r[~zero]
             
-        phase_gradB = get_integrated_phase(w_gradB, t)
+        phase_drift = get_integrated_phase(w_drift, t)
         
-        return r*np.cos(phase_gradB+phi), r*np.sin(phase_gradB+phi)
+        return r*np.cos(phase_drift+phi), r*np.sin(phase_drift+phi)
         
     def simulate(self, electron):
         
         coords_f = self.trajectory(electron)
+        phi = np.arctan2(electron._y0, electron._x0)
         
         def f(t):
-            coords = coords_f(t)
-            B, grad, curv = self.get_grad_mag(electron, coords[...,2])
+            r, z = coords_f(t)
+            B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
             pitch = self.get_pitch(electron, t, B)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
             w = get_omega_cyclotron(B, E_kin)
-            v_gradB = -get_v_gradB(E_kin, pitch, B, w, grad) - get_v_curv(E_kin, pitch, w, curv)
+            
+            v_drift = np.zeros_like(grad)
             
             if self.add_gradB:
-                #coords[...,0], coords[...,1] = self.add_gradB_motion(electron, v_gradB, t)
-                coords[...,0], coords[...,1] = self.add_gradB_motion(coords[:,0], v_gradB, t)
+                v_drift -= get_v_gradB(E_kin, pitch, B, w, grad)
+                
+            if self.add_curvB:
+                v_drift -= get_v_curv(E_kin, pitch, w, curv)
+            
+            coords = np.stack((np.empty_like(z),np.empty_like(z),z),axis=-1)
+            
+            coords[...,0], coords[...,1] = self.calc_xy(r, phi, v_drift, t)
             
             return coords, pitch, B, E_kin, w
         
@@ -156,8 +163,8 @@ def get_z_max_harmonic(L0, pitch, r):
 
 class HarmonicTrap(Trap):
 
-    def __init__(self, B0, L0, add_gradB=True):
-        Trap.__init__(self, add_gradB)
+    def __init__(self, B0, L0, add_gradB=True, add_curvB=True):
+        Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
         self._L0 = L0
 
@@ -167,9 +174,10 @@ class HarmonicTrap(Trap):
 
         phi0 = np.arcsin(electron._z0/z_max)
 
-        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
-                                    np.ones_like(t)*electron._y0,
-                                    get_z_harmonic(t, z_max, omega, phi0))
+       # return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+       #                             np.ones_like(t)*electron._y0,
+       #                             get_z_harmonic(t, z_max, omega, phi0))
+        return lambda t: np.ones_like(t)*electron.r, get_z_harmonic(t, z_max, omega, phi0)                            
                                     
     def B_field(self, r, z):
         """
@@ -206,8 +214,7 @@ class HarmonicTrap(Trap):
     def get_f(self, electron):
         return self._get_omega(electron)/(2*np.pi)
         
-    def get_grad_mag(self, electron, z):
-        r = electron.r
+    def get_grad_mag(self, r, z):
         
         B = self.B_field(r, z)
         grad = self._get_orthogonal_grad(r, z, B)
@@ -225,8 +232,8 @@ class HarmonicTrap(Trap):
 
 class BoxTrap(Trap):
 
-    def __init__(self, B0, L, add_gradB=True):
-        Trap.__init__(self, add_gradB)
+    def __init__(self, B0, L, add_gradB=True, add_curvB=True):
+        Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
         self._L = L
 
@@ -235,9 +242,10 @@ class BoxTrap(Trap):
         z_max = self._get_z_max()
         phi0 = electron._z0/z_max*np.pi/2
 
-        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
-                                    np.ones_like(t)*electron._y0,
-                                    get_z_flat(t, z_max, omega, phi0))
+       # return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+       #                             np.ones_like(t)*electron._y0,
+       #                             get_z_flat(t, z_max, omega, phi0))
+        return lambda t: np.ones_like(t)*electron.r, get_z_flat(t, z_max, omega, phi0)
 
     def pitch(self, electron):
         omega = self._get_omega(electron)
@@ -259,8 +267,7 @@ class BoxTrap(Trap):
 
         return B
         
-    def get_grad_mag(self, electron, z):
-        r = electron.r
+    def get_grad_mag(self, r, z):
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
         
@@ -278,17 +285,18 @@ class BoxTrap(Trap):
 
 class BathtubTrap(Trap):
 
-    def __init__(self, B0, L, add_gradB=True):
+    def __init__(self, B0, L, add_gradB=True, add_curvB=True):
         warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
-        Trap.__init__(self, add_gradB)
+        Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
         self._L = L
         self._L0 = L0
 
     def trajectory(self, electron):
-        return lambda t: get_pos(   np.ones_like(t)*electron._x0,
-                                    np.ones_like(t)*electron._y0,
-                                    self._get_z(electron, t))
+        #return lambda t: get_pos(   np.ones_like(t)*electron._x0,
+        #                            np.ones_like(t)*electron._y0,
+        #                            self._get_z(electron, t))
+        return lambda t: np.ones_like(t)*electron.r, self._get_z(electron, t)
 
     def B_field(self, r, z):
         # in case float input is used
@@ -401,7 +409,7 @@ class BathtubTrap(Trap):
             
         return f
         
-    def get_grad_mag(self, electron, z):
+    def get_grad_mag(self, r, z):
         
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
@@ -420,9 +428,9 @@ class BathtubTrap(Trap):
 
 class ArbitraryTrap(Trap):
 
-    def __init__(self, b_field, add_gradB=True, integration_steps=1000, 
+    def __init__(self, b_field, add_gradB=True, add_curvB=True, integration_steps=1000, 
                     root_rtol=0.00001, root_guess_max=10., root_guess_steps=1000):
-        Trap.__init__(self, add_gradB)
+        Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
         self._integration_steps = integration_steps
         self._root_rtol = root_rtol
@@ -436,9 +444,8 @@ class ArbitraryTrap(Trap):
         def coords(t):
             z = z_f(t)
             r = r_f(np.abs(z))
-            y = np.zeros_like(t)
             
-            return get_pos(r, y, z)
+            return r, z # get_pos(r, y, z)
 
         return coords
 
@@ -457,9 +464,8 @@ class ArbitraryTrap(Trap):
 
         return 1/T
         
-    def get_grad_mag(self, electron, z):
-        r = electron.r
-        pos = np.stack((np.ones_like(z)*r,z),axis=-1)
+    def get_grad_mag(self, r, z):
+        pos = np.stack((r,z),axis=-1)
         return self._b_field.get_grad_mag(pos)
         
     def adiabatic_difference(self,electron, z):
