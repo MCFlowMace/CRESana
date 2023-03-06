@@ -11,6 +11,7 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator, make_interp_spline
 from scipy.special import ellipk, ellipe, ellipkm1
 from warnings import warn
+import matplotlib.pyplot as plt
 
 from .physicsconstants import mu0
 
@@ -244,6 +245,165 @@ class MultiCoilField:
         
         return self.B_f((pos_c[...,0], pos_c[...,1]))[...,1]
         
+    def visualize(self, name=None):
+    
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        ax.set_zlabel('z [m]')
+        ax.view_init(vertical_axis='y')
+        ax.set_title(f'Background field {self.background_field:5.3f} T')
+
+        t = np.linspace(0,2*np.pi, 1000)
+        
+        for c in self.coils:
+            
+            r_coil = c.radius
+            z0 = c.z0
+            
+            xline = r_coil*np.cos(t)
+            yline = r_coil*np.sin(t)
+            zline = np.ones_like(t)*z0
+            ax.plot3D(xline, yline, zline)
+            
+        if name is not None:
+            plt.savefig(name+'.png', dpi=600)
+            
+        plt.show()
+        
+    def plot_field_2d(self, rmax, zmax, nr, nz, name=None):
+        
+        dr = rmax/nr
+        dz = 2*zmax/nz
+        grid = np.moveaxis(np.mgrid[(slice(0,rmax+dr,dr),slice(-zmax,zmax+dz,dz))],0,-1)
+        
+        aspect = 2*zmax/rmax
+        
+        B_map, grad_map, curv_map = self.get_grad_mag(grid)
+        
+        im = plt.imshow(B_map, origin='lower', extent=(grid[0,0][1], grid[0,-1][1], grid[0,0][0],grid[-1,0][0]),zorder=2)
+        cbar = plt.colorbar(im)                                                           
+        cbar.set_label('B [T]')
+        plt.xlabel('z[m]')
+        plt.ylabel('r[m]')
+        plt.gca().set_aspect(aspect)
+        plt.tight_layout()
+        
+        if name is not None:
+            plt.savefig('B_map_'+name+'.png', dpi=600)
+        plt.show()
+
+        im = plt.imshow(grad_map, origin='lower', extent=(grid[0,0][1], grid[0,-1][1], grid[0,0][0],grid[-1,0][0]),zorder=2)
+        cbar = plt.colorbar(im)                                                           
+        cbar.set_label(r'$\nabla B$ [T/m]')
+        plt.xlabel('z[m]')
+        plt.ylabel('r[m]')
+        plt.gca().set_aspect(aspect)
+        plt.tight_layout()
+                
+        if name is not None:
+            plt.savefig('B_grad_map_'+name+'.png', dpi=600)
+        plt.show()
+        
+        im = plt.imshow(curv_map, origin='lower', extent=(grid[0,0][1], grid[0,-1][1], grid[0,0][0],grid[-1,0][0]),zorder=2)
+        cbar = plt.colorbar(im)                                                           
+        cbar.set_label(r'$B \times (B \cdot \nabla) B/B^3$ [1/m]')
+        plt.xlabel('z[m]')
+        plt.ylabel('r[m]')
+        plt.gca().set_aspect(aspect)
+        plt.tight_layout()
+        
+        if name is not None:
+            plt.savefig('B_curv_map_'+name+'.png', dpi=600)
+        plt.show()
+        
+    def plot_field_profile(self, r0, z0, nz=100, nr=1, x_ax='z', name=None):
+        
+        z = np.linspace(-z0, z0, nz) if nz>1 else [z0]
+        r = np.linspace(0, r0, nr) if nr>1 else [r0]
+        
+        if x_ax=='z':
+            x = z
+            loop_vals = r
+            
+            def pos(r0):
+                r_vals = np.ones_like(z)*r0
+                return np.stack((r_vals, z), axis=-1)
+            
+            xlabel= 'z[m]'
+            legend_label='r'
+        else:
+            x = r
+            loop_vals = z[z>=0]
+            
+            def pos(z0):
+                z_vals = np.ones_like(r)*z0
+                return np.stack((r, z_vals), axis=-1)
+                
+            xlabel='r[m]'
+            legend_label='z'
+            
+        fig_B, ax_B = plt.subplots()
+        fig_grad, ax_grad = plt.subplots()
+        fig_curv, ax_curv = plt.subplots()
+        
+        ax_B.set_xlabel(xlabel)
+        ax_B.set_ylabel('B [T]')
+        
+        ax_grad.set_xlabel(xlabel)
+        ax_grad.set_ylabel(r'$\nabla B$ [T/m]')
+        
+        ax_curv.set_xlabel(xlabel)
+        ax_curv.set_ylabel(r'$B \times (B \cdot \nabla) B/B^3$ [1/m]')
+            
+        for val in loop_vals:
+            
+            B, grad, curv = self.get_grad_mag(pos(val))
+
+            ax_B.plot(x, B, label=f'{legend_label}={val:6.2f}m')
+            ax_grad.plot(x, grad, label=f'{legend_label}={val:6.2f}m')
+            ax_curv.plot(x, curv, label=f'{legend_label}={val:6.2f}m')
+        
+        
+        ax_B.legend()
+        ax_grad.legend()
+        ax_curv.legend()
+
+        fig_B.tight_layout()
+        fig_grad.tight_layout()
+        fig_curv.tight_layout()
+        
+        if name is not None:
+            fig_B.savefig(name+'_mag_'+legend_label+'.png', dpi=600)
+            fig_grad.savefig(name+'_grad_'+legend_label+'.png', dpi=600)
+            fig_curv.savefig(name+'_curv_'+legend_label+'.png', dpi=600)
+            
+        plt.show()
+
+    def plot_field_lines(self,r0, dr, nr, zmax, dz=0.1, z0=0., nz=1000, name=None):
+        color = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
+        r_vals = np.linspace(r0-dr, r0+dr, nr)
+
+        z = np.linspace(-zmax, zmax, nz)
+        
+        for r in r_vals:
+            field_line = self.gen_field_line(r, z0, dz, zmax)
+
+            
+            r_ = field_line(np.abs(z))
+
+            plt.plot(z,r_, c=color)
+            
+        plt.xlabel('z [m]')
+        plt.ylabel('r [m]')
+        
+        if name is not None:
+            plt.savefig(name+'_field_lines.png', dpi=600)
+            
+        plt.show()
+                
 
 def get_8_coil_flat_trap(z0, I0, B_background):
     """Get a MultiCoildField instance with 8 coils that produces a 
