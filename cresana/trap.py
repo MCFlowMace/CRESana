@@ -48,28 +48,28 @@ class Trap(ABC):
         pass
         
     @abstractmethod
-    def get_f(self, electron):
+    def get_f(self, electron, v):
         pass
         
     @abstractmethod
     def get_grad_mag(self, r, z):
         pass
         
-    def get_pitch_sign(self, electron, t):
-        f = self.get_f(electron)
+    def get_pitch_sign(self, electron, t, v):
+        f = self.get_f(electron,v)
         sign = np.ones_like(t)
         
-        if f!=0:
-            T = 1/self.get_f(electron)
+        if f[0]!=0:
+            T = 1/f
             period_fraction = (t%T)/T
             sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
         
         return sign
         
-    def get_pitch(self, electron, t, B):
+    def get_pitch(self, electron, t, B, v):
         theta_0 = electron.pitch
         B0 = B[0] #np.min(B) -> incorrect if trap has side minima
-        sign = self.get_pitch_sign(electron,t)
+        sign = self.get_pitch_sign(electron,t, v)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
         sintheta = np.sin(theta_0)*np.sqrt(B/B0) #np.around(np.sin(theta_0)*np.sqrt(B/B0),10)
@@ -97,11 +97,13 @@ class Trap(ABC):
         phi = np.arctan2(electron._y0, electron._x0)
         
         def f(t):
-            r, z = coords_f(t)
+            approximate_energy = get_energy(electron.E_kin, t, self.B_field(electron.r, 0), np.ones_like(t)*electron.pitch)
+            v_approximate = get_relativistic_velocity(approximate_energy)
+            r, z = coords_f(t, v_approximate)
             #B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
             B, grad, curv = self.get_grad_mag(r, z)
             
-            pitch = self.get_pitch(electron, t, B)
+            pitch = self.get_pitch(electron, t, B, v_approximate)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
         
@@ -213,7 +215,7 @@ class HarmonicTrap(Trap):
     def _get_z_max(self, electron):
         return get_z_max_harmonic(self._L0, electron.pitch, electron.r)
         
-    def get_f(self, electron):
+    def get_f(self, electron, v):
         return self._get_omega(electron)/(2*np.pi)
         
     def get_grad_mag(self, r, z):
@@ -281,7 +283,7 @@ class BoxTrap(Trap):
     def _get_z_max(self):
         return self._L/2
 
-    def get_f(self, electron):
+    def get_f(self, electron, v):
         return self._get_omega(electron)/(2*np.pi)
 
 
@@ -424,7 +426,7 @@ class BathtubTrap(Trap):
     def _get_z_max(self, electron):
         return get_z_max_harmonic(self._L0, electron.pitch)
 
-    def get_f(self, electron):
+    def get_f(self, electron, v):
         return 1/self._period(electron)
 
 
@@ -432,7 +434,8 @@ class ArbitraryTrap(Trap):
 
     def __init__(self, b_field, add_gradB=True, add_curvB=True,
                     integration_steps=1000, field_line_step_size=0.0001,
-                    root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000):
+                    root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000,
+                    energy_loss=True):
         Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
         self._integration_steps = integration_steps
@@ -440,13 +443,14 @@ class ArbitraryTrap(Trap):
         self._root_guess_max = root_guess_max
         self._root_guess_steps = root_guess_steps
         self._field_line_step_size = field_line_step_size
+        self._energy_loss = energy_loss
         self._T_buffer = {}
 
     def trajectory(self, electron):
         z_f, r_f = self._solve_trajectory(electron)
         
-        def coords(t):
-            z = z_f(t)
+        def coords(t, v):
+            z = z_f(t, v)
             r = r_f(np.abs(z))
             
             return r, z # get_pos(r, y, z)
@@ -460,11 +464,11 @@ class ArbitraryTrap(Trap):
         B, _, _ = self._b_field.get_grad_mag(pos)
         return B
 
-    def get_f(self, electron):
+    def get_f(self, electron, v):
         if electron not in self._T_buffer:
             self._solve_trajectory(electron)
             
-        T = self._T_buffer[electron]
+        T = self._T_buffer[electron]/v
 
         return 1/T
         
@@ -542,29 +546,58 @@ class ArbitraryTrap(Trap):
             for i in range(len(z_val)):
                 integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r_f(z), z)), 0,z_val[i])[0]
 
-            t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
+            #t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
 
-            interpolation = make_interp_spline(t, z_val, bc_type='clamped')
+            #interpolation = make_interp_spline(t, z_val, bc_type='clamped')
             
-            def z_f(t_in):
+            v0 = get_relativistic_velocity(electron.E_kin)
+            dist = integral * np.sqrt(B_max)
+
+            interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
+            
+            def z_f(t_in, v):
                 
                 #periodical continuation under the assumption that the integral
                 #scans the first quarter period of the electron trajectory in a symmetric trap
-                t_end = t[-1]
+                #~ t_end = t[-1]
+
+                #~ t_out = t_in.copy()
+                #~ t_out %= 4*t_end
+                #~ t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
+                #~ sign = np.sign(t_out[np.abs(t_out)>t_end])
+                #~ t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
+
+                #~ negative = t_out<0
+                #~ res = np.empty_like(t_in)
+                #~ res[negative] = -interpolation(-t_out[negative])
+                #~ res[~negative] = interpolation(t_out[~negative])
+
+                #~ return res
+                
+            #~ self._T_buffer[electron] = 4*t[-1]
+            
+                if not self._energy_loss:
+                    v = np.ones_like(v)*v0
+                
+                t_end = dist[-1]/v
 
                 t_out = t_in.copy()
                 t_out %= 4*t_end
-                t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
-                sign = np.sign(t_out[np.abs(t_out)>t_end])
-                t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
+                ind = t_out>2*t_end
+                #t_out[ind] = t_end[ind] - (t_out[ind]-t_end[ind])
+                t_out[ind] = 2*t_end[ind] - t_out[ind]
+                ind = np.abs(t_out)>t_end
+                sign = np.sign(t_out[ind])
+                #t_out[ind] = sign*t_end[ind]-(t_out[ind]-sign*t_end[ind])
+                t_out[ind] = 2*sign*t_end[ind]-t_out[ind]
 
                 negative = t_out<0
                 res = np.empty_like(t_in)
-                res[negative] = -interpolation(-t_out[negative])
-                res[~negative] = interpolation(t_out[~negative])
+                res[negative] = -interpolation(-t_out[negative]*v[negative])
+                res[~negative] = interpolation(t_out[~negative]*v[~negative])
 
                 return res
                 
-            self._T_buffer[electron] = 4*t[-1]
+            self._T_buffer[electron] = 4*dist[-1]#/v0
         
         return z_f, r_f
