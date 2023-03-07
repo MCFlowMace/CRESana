@@ -432,7 +432,7 @@ class ArbitraryTrap(Trap):
 
     def __init__(self, b_field, add_gradB=True, add_curvB=True,
                     integration_steps=1000, field_line_step_size=0.0001,
-                    root_rtol=0.00001, root_guess_max=10., root_guess_steps=1000):
+                    root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000):
         Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
         self._integration_steps = integration_steps
@@ -523,7 +523,7 @@ class ArbitraryTrap(Trap):
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
-        print('zmax', right, self.adiabatic_difference(r_f, right, electron.pitch))
+        print('zmax', right)
         
         #dz = right/self._integration_steps
         
