@@ -482,13 +482,18 @@ class ArbitraryTrap(Trap):
     def guess_root(self, r_f, pitch):
         z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
         diff = self.adiabatic_difference(r_f, z, pitch)
-        ind = np.argmax(diff>0)
+        positives = np.argwhere(diff>0) #np.argmax(diff>0)
+        
+        if len(positives)==0:
+            raise RuntimeError('Found guess of root at z=root_guess_max -> Consider increasing "root_guess_max" and/or "root_guess_steps"!')
+            
+        ind = positives[0][0]
         
         if ind==0:
-            raise RuntimeError('Found guess of root at z=0 -> Increase "root_guess_steps" or reduce "root_guess_max"!')
+            raise RuntimeError('Found guess of root at z=0 -> Consider increasing "root_guess_steps" or reducing "root_guess_max"!')
         
-        if ind==len(z)-1:
-            raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
+       # if ind==len(z)-1:
+        #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
             
         return z[ind-1], z[ind]
         
