@@ -68,11 +68,11 @@ class Trap(ABC):
         
     def get_pitch(self, electron, t, B):
         theta_0 = electron.pitch
-        B0 = np.min(B)
+        B0 = B[0] #np.min(B) -> incorrect if trap has side minima
         sign = self.get_pitch_sign(electron,t)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
-        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0),10)
+        sintheta = np.sin(theta_0)*np.sqrt(B/B0) #np.around(np.sin(theta_0)*np.sqrt(B/B0),10)
         theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
         return theta
@@ -93,13 +93,14 @@ class Trap(ABC):
         
     def simulate(self, electron):
         
-        coords_f = self.trajectory(electron)
+        coords_f= self.trajectory(electron)
         phi = np.arctan2(electron._y0, electron._x0)
         
         def f(t):
             r, z = coords_f(t)
             #B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
             B, grad, curv = self.get_grad_mag(r, z)
+            
             pitch = self.get_pitch(electron, t, B)
             
             E_kin = get_energy(electron.E_kin, t, B, pitch)
@@ -508,7 +509,9 @@ class ArbitraryTrap(Trap):
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
-        r_f = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
+        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
+        r_f = lambda z: r_f_unsigned(np.abs(z))
+        
         self._check_if_trapped(electron)
         
         root_guess = self.guess_root(r_f, electron.pitch)
@@ -520,7 +523,7 @@ class ArbitraryTrap(Trap):
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
-        print('zmax', right)
+        print('zmax', right, self.adiabatic_difference(r_f, right, electron.pitch))
         
         #dz = right/self._integration_steps
         
