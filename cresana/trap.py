@@ -538,7 +538,7 @@ class ArbitraryTrap(Trap):
         
         if right==0:
             
-            z_f = lambda t: np.zeros_like(t)
+            z_f = lambda t, v: np.zeros_like(t)
             self._T_buffer[electron] = float('inf')
             
         else:
