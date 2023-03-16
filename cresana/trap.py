@@ -466,7 +466,11 @@ class ArbitraryTrap(Trap):
         B, _, _ = self._b_field.get_grad_mag(pos)
         return B
 
-    def get_f(self, electron, v):
+    def get_f(self, electron, v=None):
+        
+        if v is None:
+            v = get_relativistic_velocity(electron.E_kin)
+        
         if electron not in self._T_buffer:
             self._solve_trajectory(electron)
             
