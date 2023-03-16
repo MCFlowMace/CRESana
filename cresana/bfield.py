@@ -124,8 +124,9 @@ class MultiCoilField:
             B_max = 0
             for c in self.coils:
                 b = self.evaluate_B(np.array([r, c.z0]))
-                if b>B_max:
-                    B_max = b
+                b_mag = np.sqrt(b[...,0]**2 + b[...,1]**2)
+                if b_mag>B_max:
+                    B_max = b_mag
             return B_max
         
     def evaluate_B(self, pos, derivatives=False):
