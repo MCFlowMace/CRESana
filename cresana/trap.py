@@ -57,9 +57,11 @@ class Trap(ABC):
         
     def get_pitch_sign(self, electron, t, v):
         f = self.get_f(electron,v)
+        if type(f)==np.float64:
+            f = np.array([f])
         sign = np.ones_like(t)
         
-        if f[0]!=0:
+        if f[...,0]!=0:
             T = 1/f
             period_fraction = (t%T)/T
             sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
@@ -181,7 +183,7 @@ class HarmonicTrap(Trap):
        # return lambda t: get_pos(   np.ones_like(t)*electron._x0,
        #                             np.ones_like(t)*electron._y0,
        #                             get_z_harmonic(t, z_max, omega, phi0))
-        return lambda t: np.ones_like(t)*electron.r, get_z_harmonic(t, z_max, omega, phi0)                            
+        return lambda t, z: (np.ones_like(t)*electron.r, get_z_harmonic(t, z_max, omega, phi0))                          
                                     
     def B_field(self, r, z):
         """
@@ -249,7 +251,7 @@ class BoxTrap(Trap):
        # return lambda t: get_pos(   np.ones_like(t)*electron._x0,
        #                             np.ones_like(t)*electron._y0,
        #                             get_z_flat(t, z_max, omega, phi0))
-        return lambda t: np.ones_like(t)*electron.r, get_z_flat(t, z_max, omega, phi0)
+        return lambda t, v: (np.ones_like(t)*electron.r, get_z_flat(t, z_max, omega, phi0))
 
     def pitch(self, electron):
         omega = self._get_omega(electron)
