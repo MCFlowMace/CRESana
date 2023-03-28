@@ -123,7 +123,47 @@ class IsotropicAntenna(Antenna):
         
     def sum_elements(self, signals):
         return signals
+
+
+def get_dipole_theta_phi(theta, phi):
+
+    theta_mod = np.pi/2 - theta
+    
+    theta_factor = np.zeros_like(theta_mod)
+    
+    nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
+    
+    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
+    phi_factor = np.cos(phi)
+
+    return theta_factor, phi_factor
+
+
+class GenericAntenna(Antenna):
+    
+    def __init__(self, directivity_exponent):
         
+        Antenna.__init__(self)
+        self.directivity_exponent = directivity_exponent
+        
+    def transfer_function(self, w_receiver):
+        
+        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
+        
+        return tf_abs + 0.0j
+        
+    def directivity_factor(self, theta, phi):
+
+        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
+        
+        return theta_factor**self.directivity_exponent*phi_factor
+        
+    def position_elements(self, positions):
+        return positions
+        
+    def sum_elements(self, signals):
+        return signals
+
     
 class SlottedWaveguideAntenna(Antenna):
     
@@ -155,14 +195,7 @@ class SlottedWaveguideAntenna(Antenna):
         
     def directivity_factor(self, theta, phi):
     
-        theta_mod = np.pi/2 - theta
-        
-        theta_factor = np.zeros_like(theta_mod)
-        
-        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
-        
-        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
-        phi_factor = np.cos(phi)
+        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
         
         return theta_factor*phi_factor
         
