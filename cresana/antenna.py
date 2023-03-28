@@ -141,14 +141,15 @@ def get_dipole_theta_phi(theta, phi):
 
 class GenericAntenna(Antenna):
     
-    def __init__(self, directivity_exponent):
+    def __init__(self, directivity_exponent, gain):
         
         Antenna.__init__(self)
         self.directivity_exponent = directivity_exponent
+        self.lin_gain =  10**(gain/10)
         
     def transfer_function(self, w_receiver):
         
-        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
+        tf_abs = np.sqrt(self.lin_gain*standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
         
         return tf_abs + 0.0j
         
