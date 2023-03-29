@@ -61,7 +61,9 @@ class Trap(ABC):
             f = np.array([f])
         sign = np.ones_like(t)
         
-        if f[...,0]!=0:
+        #if one value of f==0 this should be equivalent to all of them being zero
+        #-> no need to check on all values and make this part differ for different array values
+        if f.flat[0]!=0:
             T = 1/f
             period_fraction = (t%T)/T
             sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
