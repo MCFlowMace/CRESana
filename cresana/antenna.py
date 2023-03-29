@@ -123,7 +123,48 @@ class IsotropicAntenna(Antenna):
         
     def sum_elements(self, signals):
         return signals
+
+
+def get_dipole_theta_phi(theta, phi):
+
+    theta_mod = np.pi/2 - theta
+    
+    theta_factor = np.zeros_like(theta_mod)
+    
+    nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
+    
+    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
+    phi_factor = np.cos(phi)
+
+    return theta_factor, phi_factor
+
+
+class GenericAntenna(Antenna):
+    
+    def __init__(self, directivity_exponent, gain):
         
+        Antenna.__init__(self)
+        self.directivity_exponent = directivity_exponent
+        self.lin_gain =  10**(gain/10)
+        
+    def transfer_function(self, w_receiver):
+        
+        tf_abs = np.sqrt(self.lin_gain*standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
+        
+        return tf_abs + 0.0j
+        
+    def directivity_factor(self, theta, phi):
+
+        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
+        
+        return theta_factor**self.directivity_exponent*phi_factor
+        
+    def position_elements(self, positions):
+        return positions
+        
+    def sum_elements(self, signals):
+        return signals
+
     
 class SlottedWaveguideAntenna(Antenna):
     
@@ -155,14 +196,7 @@ class SlottedWaveguideAntenna(Antenna):
         
     def directivity_factor(self, theta, phi):
     
-        theta_mod = np.pi/2 - theta
-        
-        theta_factor = np.zeros_like(theta_mod)
-        
-        nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
-        
-        theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
-        phi_factor = np.cos(phi)
+        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
         
         return theta_factor*phi_factor
         
@@ -273,4 +307,16 @@ class AntennaArray:
         instance = cls(positions, normals, polarizations, antenna)
 
         return instance
+
+    @classmethod
+    def make_generic_full_cylinder_array(cls, L, R, w, gain, directivity_exponent=10, add_orthogonal_polarizations=False):
+
+        la = 2*np.pi*speed_of_light/w
+
+        antenna = GenericAntenna(directivity_exponent, gain)
+
+        n_rings = int(L/la)
+        n_antenna = int(2*np.pi*R/la)
+
+        return cls.make_multi_ring_array(R, n_antenna, n_rings, -L/2, L/2, antenna, add_orthogonal_polarizations)
 
