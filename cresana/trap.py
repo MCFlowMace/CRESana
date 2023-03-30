@@ -20,6 +20,7 @@ from scipy.optimize import root_scalar
 from scipy.integrate import cumtrapz, quad
 from scipy.interpolate import make_interp_spline
 import numpy as np
+import matplotlib.pyplot as plt
 
 from .physicsconstants import speed_of_light, E0_electron
 from .utility import get_pos
@@ -439,6 +440,8 @@ class ArbitraryTrap(Trap):
     def __init__(self, b_field, add_gradB=True, add_curvB=True,
                     integration_steps=1000, field_line_step_size=0.0001,
                     root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000,
+                    b_interpolation_steps=None,
+                    debug=False,
                     energy_loss=True):
         Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
@@ -449,6 +452,8 @@ class ArbitraryTrap(Trap):
         self._field_line_step_size = field_line_step_size
         self._energy_loss = energy_loss
         self._T_buffer = {}
+        self._b_interpolation_steps = b_interpolation_steps
+        self._debug = debug
 
     def trajectory(self, electron):
         z_f, r_f = self._solve_trajectory(electron)
@@ -519,7 +524,31 @@ class ArbitraryTrap(Trap):
         
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
-            
+    
+    def _get_B_f(self, r_f, z_max):
+
+        if self._b_interpolation_steps is not None:
+            z = np.linspace(0, z_max, self._b_interpolation_steps)
+            B = self.B_field(r_f(z), z)
+            B_f = make_interp_spline(z, B, bc_type='clamped')
+
+            if self._debug:
+                self._plot_B_interpolation_error(B_f, r_f, z_max)
+        else:
+            B_f = lambda z: self.B_field(r_f(z), z)
+
+        return B_f
+
+    def _plot_B_interpolation_error(self, B_f, r_f, z_max):
+        z = np.linspace(0, z_max, self._b_interpolation_steps*10)
+        B_analytic = self.B_field(r_f(z), z)
+        B_interpolated = B_f(z)
+
+        plt.plot(z, np.abs(B_analytic-B_interpolated)/B_analytic)
+        plt.xlabel('z [m]')
+        plt.ylabel('relative B error')
+        plt.yscale('log')
+        plt.show()
         
     def _solve_trajectory(self, electron):
         
@@ -550,14 +579,18 @@ class ArbitraryTrap(Trap):
             self._T_buffer[electron] = float('inf')
             
         else:
+
+            print('Interpolating B')
+            B_f = self._get_B_f(r_f, right)
         
             z_val = np.linspace(0, right, self._integration_steps)
             integral = np.zeros_like(z_val)
             
-            B_max = self.B_field(r_f(right), right)
+            B_max = B_f(right)
 
+            print('Integrating')
             for i in range(len(z_val)):
-                integral[i] = quad(lambda z: 1/np.sqrt(B_max-self.B_field(r_f(z), z)), 0,z_val[i])[0]
+                integral[i] = quad(lambda z: 1/np.sqrt(B_max-B_f(z)), 0,z_val[i])[0]
 
             #t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
 
