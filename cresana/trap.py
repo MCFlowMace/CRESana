@@ -73,7 +73,7 @@ class Trap(ABC):
         
     def get_pitch(self, electron, t, B, v):
         theta_0 = electron.pitch
-        B0 = B[0] #np.min(B) -> incorrect if trap has side minima
+        B0 = self.B_field(electron.r, 0.) #B[0] -> incorrect if z(t0)!=0  #np.min(B) -> incorrect if trap has side minima
         sign = self.get_pitch_sign(electron,t, v)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
@@ -588,7 +588,7 @@ class ArbitraryTrap(Trap):
             
             B_max = B_f(right)
 
-            print('Integrating')
+            print('Solving Integral')
             for i in range(len(z_val)):
                 integral[i] = quad(lambda z: 1/np.sqrt(B_max-B_f(z)), 0,z_val[i])[0]
 
