@@ -530,7 +530,7 @@ class ArbitraryTrap(Trap):
         if self._b_interpolation_steps is not None:
             z = np.linspace(0, z_max, self._b_interpolation_steps)
             B = self.B_field(r_f(z), z)
-            B_f = make_interp_spline(z, B, bc_type='clamped')
+            B_f = make_interp_spline(z, B)
 
             if self._debug:
                 self._plot_B_interpolation_error(B_f, r_f, z_max)
@@ -580,7 +580,6 @@ class ArbitraryTrap(Trap):
             
         else:
 
-            print('Interpolating B')
             B_f = self._get_B_f(r_f, right)
         
             z_val = np.linspace(0, right, self._integration_steps)
@@ -588,7 +587,6 @@ class ArbitraryTrap(Trap):
             
             B_max = B_f(right)
 
-            print('Solving Integral')
             for i in range(len(z_val)):
                 integral[i] = quad(lambda z: 1/np.sqrt(B_max-B_f(z)), 0,z_val[i])[0]
 
