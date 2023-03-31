@@ -441,6 +441,7 @@ class ArbitraryTrap(Trap):
                     integration_steps=1000, field_line_step_size=0.0001,
                     root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000,
                     b_interpolation_steps=None,
+                    fast_integral=False,
                     debug=False,
                     energy_loss=True):
         Trap.__init__(self, add_gradB, add_curvB)
@@ -453,6 +454,7 @@ class ArbitraryTrap(Trap):
         self._energy_loss = energy_loss
         self._T_buffer = {}
         self._b_interpolation_steps = b_interpolation_steps
+        self._fast_integral = fast_integral
         self._debug = debug
 
     def trajectory(self, electron):
@@ -549,6 +551,35 @@ class ArbitraryTrap(Trap):
         plt.ylabel('relative B error')
         plt.yscale('log')
         plt.show()
+
+    def _solve_integral(self, z_val, B_f):
+
+        B_max = B_f(z_val[-1])
+        integrand = lambda z: 1/np.sqrt(B_max-B_f(z))
+
+        if self._fast_integral:
+            return self._stepwise_integral_fast(z_val, integrand)
+        else:
+            return self._stepwise_integral(z_val, integrand)
+
+
+    def _stepwise_integral(self, z_val, integrand):
+
+        integral = np.zeros_like(z_val)
+        for i in range(len(z_val)-1):
+            integral[i] = quad(integrand, 0,z_val[i])[0]
+        #separate last step to get smaller error at singularity
+        integral[-1] = integral[-2] + quad(integrand, z_val[-2],z_val[-1])[0]
+
+        return integral
+
+    def _stepwise_integral_fast(self, z_val, integrand):
+
+        integral = np.zeros_like(z_val)
+        for i in range(len(z_val)-1):
+            integral[i+1] = integral[i] + quad(integrand, z_val[i],z_val[i+1])[0]
+
+        return integral
         
     def _solve_trajectory(self, electron):
         
@@ -571,8 +602,6 @@ class ArbitraryTrap(Trap):
         
         print('zmax', right)
         
-        #dz = right/self._integration_steps
-        
         if right==0:
             
             z_f = lambda t, v: np.zeros_like(t)
@@ -581,21 +610,16 @@ class ArbitraryTrap(Trap):
         else:
 
             B_f = self._get_B_f(r_f, right)
-        
-            z_val = np.linspace(0, right, self._integration_steps)
-            integral = np.zeros_like(z_val)
-            
-            B_max = B_f(right)
 
-            for i in range(len(z_val)):
-                integral[i] = quad(lambda z: 1/np.sqrt(B_max-B_f(z)), 0,z_val[i])[0]
+            z_val = np.linspace(0, right, self._integration_steps)
+            integral = self._solve_integral(z_val, B_f)
 
             #t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
 
             #interpolation = make_interp_spline(t, z_val, bc_type='clamped')
             
             v0 = get_relativistic_velocity(electron.E_kin)
-            dist = integral * np.sqrt(B_max)
+            dist = integral * np.sqrt(B_f(right))
 
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
             
