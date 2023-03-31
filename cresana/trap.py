@@ -613,10 +613,6 @@ class ArbitraryTrap(Trap):
 
             z_val = np.linspace(0, right, self._integration_steps)
             integral = self._solve_integral(z_val, B_f)
-
-            #t = integral * np.sqrt(B_max)/get_relativistic_velocity(electron.E_kin)
-
-            #interpolation = make_interp_spline(t, z_val, bc_type='clamped')
             
             v0 = get_relativistic_velocity(electron.E_kin)
             dist = integral * np.sqrt(B_f(right))
@@ -624,25 +620,6 @@ class ArbitraryTrap(Trap):
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
             
             def z_f(t_in, v):
-                
-                #periodical continuation under the assumption that the integral
-                #scans the first quarter period of the electron trajectory in a symmetric trap
-                #~ t_end = t[-1]
-
-                #~ t_out = t_in.copy()
-                #~ t_out %= 4*t_end
-                #~ t_out[t_out>2*t_end] = t_end - (t_out[t_out>2*t_end]-t_end)
-                #~ sign = np.sign(t_out[np.abs(t_out)>t_end])
-                #~ t_out[np.abs(t_out)>t_end] = sign*t_end-(t_out[np.abs(t_out)>t_end]-sign*t_end)
-
-                #~ negative = t_out<0
-                #~ res = np.empty_like(t_in)
-                #~ res[negative] = -interpolation(-t_out[negative])
-                #~ res[~negative] = interpolation(t_out[~negative])
-
-                #~ return res
-                
-            #~ self._T_buffer[electron] = 4*t[-1]
             
                 if not self._energy_loss:
                     v = np.ones_like(v)*v0
