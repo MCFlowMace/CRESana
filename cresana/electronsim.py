@@ -290,18 +290,12 @@ class AnalyticSimulation(ElectronSimulator):
     def __init__(self, trap, electron, N, t_max):
         ElectronSimulator.__init__(self)
         
-        #self.coords_f = trap.trajectory(electron)
         self.electron = electron
-        #self.B_f = trap.B_field
-        #self.pitch_f = trap.pitch(electron)
         self.simulate_f = trap.simulate(electron)
         self._get_initial_sim(N, t_max)
         
     def simulate(self, t):
         
-        #coords = self.coords_f(t)
-        #B_vals = self.B_f(coords[...,2])
-        #pitch = self.pitch_f(t)
         coords, pitch, B_vals, E_kin, w = self.simulate_f(t)
         B_direction = np.array([0,0,1])
         
