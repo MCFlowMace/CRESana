@@ -77,7 +77,8 @@ class Trap(ABC):
         sign = self.get_pitch_sign(electron,t, v)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
-        sintheta = np.sin(theta_0)*np.sqrt(B/B0) #np.around(np.sin(theta_0)*np.sqrt(B/B0),10)
+        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0), 15)
+
         theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
         return theta
