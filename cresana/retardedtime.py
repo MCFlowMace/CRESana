@@ -111,7 +111,7 @@ class ForwardRetardedSimCalculator(RetardedSimCalculator):
 
     def get_retarded_time(self, t_sample, electron_simulator):
         
-        print('Calculating forward retarded time')
+        #print('Calculating forward retarded time')
 
         d_vec, d = self.calc_d_vec_and_abs(electron_simulator.electron_sim.coords)
 
