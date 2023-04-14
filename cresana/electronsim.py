@@ -331,7 +331,8 @@ class AnalyticSimulation(ElectronSimulator):
     def get_sample_time_trajectory(self, t_sample):
         
         t = t_sample
-        coords = self.coords_f(t)
+        #coords = self.coords_f(t)
+        coords, t, _, _, _, _, _ = self.simulate(t_sample)
         
         return t, coords
 
