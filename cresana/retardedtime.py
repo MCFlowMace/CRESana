@@ -25,14 +25,20 @@ class RetardedSimCalculator(ABC):
     def __call__(self, t_sample, electron_simulator):
         
         t_ret = self.get_retarded_time(t_sample, electron_simulator)
-        ind_non_causal = t_ret<0
-        t_ret[ind_non_causal] = 0.
+        ind_pre_signal = t_ret<electron_simulator.get_t_start()
+        ind_post_signal = t_ret>electron_simulator.get_t_end()
+        #ind_non_causal = t_ret<0
+        #t_ret[ind_non_causal] = 0.
+        t_ret[ind_pre_signal] = electron_simulator.get_t_start()
+        t_ret[ind_post_signal] = electron_simulator.get_t_end()
 
         retarded_electron_sim = electron_simulator(t_ret)
         
         d_vec, d = self.calc_d_vec_and_abs(retarded_electron_sim.coords)
         
-        d[ind_non_causal] = np.inf #makes the received power 0 later on -> no signal before the radiation arrives
+        #d[ind_non_causal] = np.inf 
+        d[ind_pre_signal] = np.inf #makes the received power 0 later on -> no signal before the radiation arrives
+        d[ind_post_signal] = np.inf
         return retarded_electron_sim, t_sample, d_vec, d
         
     @abstractmethod
@@ -101,7 +107,7 @@ class TaylorRetardedSimCalculator(RetardedSimCalculator):
             return t_ret_1(t,d)
         else:
             return t_ret_2(t,d)
-        
+
 
 class ForwardRetardedSimCalculator(RetardedSimCalculator):
     

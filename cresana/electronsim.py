@@ -64,7 +64,7 @@ class Electron:
         Initial velocity.
     """
 
-    def __init__(self, E_kin, pitch, r=0, phi=0, z0=0, v_phi=0):
+    def __init__(self, E_kin, pitch, t_len=None, t_start=0, r=0, phi=0, z0=0, v_phi=0):
         self._E_kin = E_kin
         self._pitch = pitch/180*np.pi
         self._x0 = r*np.cos(phi)
@@ -75,6 +75,8 @@ class Electron:
             warn('Using z0!=0 is not supported by all traps in their current implementations! For this reason z0 is ignored. Sorry.')
         self._v_phi = v_phi
         self._v0 = get_relativistic_velocity(E_kin)
+        self._t_len = t_len
+        self._t_start = t_start
 
     @property
     def E_kin(self):
@@ -83,6 +85,14 @@ class Electron:
     @property
     def pitch(self):
         return self._pitch
+
+    @property
+    def t_len(self):
+        return self._t_len
+    
+    @property
+    def t_start(self):
+        return self._t_start
         
     @property
     def r(self):
@@ -149,6 +159,14 @@ class ElectronSimulator:
         
     @abstractmethod
     def get_sample_time_trajectory(self, t_sample):
+        pass
+
+    @abstractmethod
+    def get_t_start(self):
+        pass
+
+    @abstractmethod
+    def get_t_end(self):
         pass
         
     def __call__(self, t):
@@ -219,6 +237,12 @@ class KassSimulation(ElectronSimulator):
         w = get_omega_cyclotron(B, E_kin)
 
         return coords, t_traj, B, E_kin, pitch, self.electron_sim.B_direction, w
+    
+    def get_t_start(self):
+        return self.electron_sim.t[0]
+    
+    def get_t_end(self):
+        return self.electron_sim.t[-1]
         
     def get_sample_time_trajectory(self, t_sample):
         
@@ -291,12 +315,15 @@ class AnalyticSimulation(ElectronSimulator):
         ElectronSimulator.__init__(self)
         
         self.electron = electron
+        self.t_max = t_max
         self.simulate_f = trap.simulate(electron)
-        self._get_initial_sim(N, t_max)
+        self._get_initial_sim(N)
         
     def simulate(self, t):
-        
-        coords, pitch, B_vals, E_kin, w = self.simulate_f(t)
+
+        t_electron = t - self.electron.t_start
+
+        coords, pitch, B_vals, E_kin, w = self.simulate_f(t_electron)
         B_direction = np.array([0,0,1])
         
         return coords, t, B_vals, E_kin, pitch, B_direction, w
@@ -308,11 +335,20 @@ class AnalyticSimulation(ElectronSimulator):
         
         return t, coords
 
-    def _get_initial_sim(self, N, t_max):
+    def _get_initial_sim(self, N):
         
+        t_max = self.t_max
         dt = t_max/N
         sampling_rate = 1/dt
         clock = Clock(sampling_rate)
         data = self.simulate(clock(N))
         self.electron_sim = ElectronSim(*data)
         
+    def get_t_start(self):
+        return self.electron.t_start
+    
+    def get_t_end(self):
+        if self.electron.t_len is not None:
+            return self.electron.t_start + self.electron.t_len
+        else:
+            return self.t_max
