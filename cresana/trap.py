@@ -281,7 +281,7 @@ class BoxTrap(Trap):
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
         
-        return B, grad
+        return B, grad, 0
 
     def _get_omega(self, electron):
         return electron.v0*np.cos(electron.pitch)*np.pi/self._L
