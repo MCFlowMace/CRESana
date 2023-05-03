@@ -77,7 +77,17 @@ class Trap(ABC):
         sign = self.get_pitch_sign(electron,t, v)
         #there seems to be a numerics issue here -> round to 12 digits
         #without that observed sintheta>1, which results in NaN
-        sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0), 15)
+        #sintheta = np.around(np.sin(theta_0)*np.sqrt(B/B0), 13)
+        sintheta = np.sin(theta_0)*np.sqrt(B/B0)
+        sintheta[sintheta>1.] = 1.
+
+       # np.set_printoptions(precision=20)
+
+       # print('>1',np.where(sintheta>1))
+       # print('>1',sintheta[sintheta>1])
+        
+       # print('<-1',np.where(sintheta<-1))
+       # print('<-1',sintheta[sintheta<-1])
 
         theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
@@ -442,6 +452,7 @@ class ArbitraryTrap(Trap):
                     integration_steps=1000, field_line_step_size=0.0001,
                     root_rtol=1e-25, root_guess_max=10., root_guess_steps=1000,
                     b_interpolation_steps=None,
+                    b_interpolation_order=3,
                     fast_integral=False,
                     debug=False,
                     energy_loss=True):
@@ -455,6 +466,7 @@ class ArbitraryTrap(Trap):
         self._energy_loss = energy_loss
         self._T_buffer = {}
         self._b_interpolation_steps = b_interpolation_steps
+        self._b_interpolation_order = b_interpolation_order
         self._fast_integral = fast_integral
         self._debug = debug
 
@@ -533,7 +545,7 @@ class ArbitraryTrap(Trap):
         if self._b_interpolation_steps is not None:
             z = np.linspace(0, z_max, self._b_interpolation_steps)
             B = self.B_field(r_f(z), z)
-            B_f = make_interp_spline(z, B)
+            B_f = make_interp_spline(z, B, k=self._b_interpolation_order)
 
             if self._debug:
                 self._plot_B_interpolation_error(B_f, r_f, z_max)
@@ -567,10 +579,14 @@ class ArbitraryTrap(Trap):
     def _stepwise_integral(self, z_val, integrand):
 
         integral = np.zeros_like(z_val)
-        for i in range(len(z_val)-1):
-            integral[i] = quad(integrand, 0,z_val[i])[0]
+        #for i in range(len(z_val)-1):
+        #    integral[i] = quad(integrand, 0,z_val[i])[0]
         #separate last step to get smaller error at singularity
-        integral[-1] = integral[-2] + quad(integrand, z_val[-2],z_val[-1])[0]
+        #integral[-1] = integral[-2] + quad(integrand, z_val[-2],z_val[-1])[0]
+        #^dropped this idea because sometimes the separate integration on the last interval results in NaN
+
+        for i in range(len(z_val)):
+            integral[i] = quad(integrand, 0,z_val[i])[0]
 
         return integral
 
@@ -601,7 +617,7 @@ class ArbitraryTrap(Trap):
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
-        print('zmax', right)
+     #   print('zmax', right)
         
         if right==0:
             
