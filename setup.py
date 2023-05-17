@@ -13,6 +13,7 @@ with open("README.md", "r") as fh:
 required = [
     "numpy",
     "scipy>=1.9",
+    "matplotlib"
     "uproot"
 ]
 
@@ -26,10 +27,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/MCFlowMace/CRESana",
     packages=setuptools.find_packages(),
-    #package_data={'cresana': ['hexbug/**/**/*', 'hexbug/**/*', 'settings/*']},
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.8',
     install_requires=required)
