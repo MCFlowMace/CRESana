@@ -12,3 +12,4 @@ from .sampling import Simulation
 from .trap import HarmonicTrap, BoxTrap, ArbitraryTrap
 from .bfield import MultiCoilField, Coil
 from .antenna import AntennaArray, SlottedWaveguideAntenna, IsotropicAntenna, GenericAntenna
+from .model import CRESanaModel
