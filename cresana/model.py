@@ -21,6 +21,16 @@ class CRESanaModel(ABC):
         self.f_LO = f_LO
         self.flattened = flattened
         self.n_samples = n_samples
+        self.init_trap()
+        self.init_array()
+
+    @abstractmethod
+    def init_trap(self):
+        pass
+
+    @abstractmethod
+    def init_array(self):
+        pass
 
     @property
     @abstractmethod
