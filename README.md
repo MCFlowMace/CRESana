@@ -7,7 +7,7 @@ Installation as a python package is simple via pip. Clone the repository and run
 ## How to get started
 Unfortunately as of now CRESana is overall poorly documented. It is recommended to check out the `cresana_samples` directory for same example scripts. There are standalone scripts for some specific tasks that demonstrate a bit of the electron motion simulation as well as the voltage sampling simulation and hopefully they can give a bit of an overview for how to setup simulations with the classes of the `cresana` package. In addition to the example scripts there is `cresana_samples/models.py` which contains ready to use sample setups in the form of concrete implementations of the abstract `CRESanaModel` base class. They can be used in the following way
 
-```
+```py
 from cresana_samples import FSSTrapModel
 
 model = FSSTrapModel(z0, I0, B0, R, n_channels, sr, f_LO, n_samples, flattened=False)
