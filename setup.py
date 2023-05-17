@@ -19,7 +19,7 @@ required = [
 
 setuptools.setup(
     name="cresana",
-    version="0.2.0",
+    version="0.3.0",
     author="Florian Thomas",
     author_email="fthomas@uni-mainz.de",
     description="https://github.com/MCFlowMace/CRESana",
