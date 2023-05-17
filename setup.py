@@ -27,6 +27,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/MCFlowMace/CRESana",
     packages=setuptools.find_packages(),
+    #packages=['cresana', 'cresana_samples'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
