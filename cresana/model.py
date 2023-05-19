@@ -8,6 +8,7 @@ Date: May 17, 2023
 """
 
 from abc import ABC, abstractmethod
+from math import sqrt
 
 from .electronsim import Electron, AnalyticSimulation
 from .sampling import Simulation
@@ -15,12 +16,13 @@ from .sampling import Simulation
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, n_samples, flattened=True):
+    def __init__(self, sr, f_LO, n_samples, power_efficiency=1., flattened=True):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
         self.flattened = flattened
         self.n_samples = n_samples
+        self.power_efficiency = power_efficiency
         self.init_trap()
         self.init_array()
 
@@ -70,4 +72,5 @@ class CRESanaModel(ABC):
         sim = AnalyticSimulation(self.trap, electron, 2*self.n_samples, t_max)
 
         simulation = Simulation(self.array, self.sr, self.f_LO)
-        return simulation.get_samples(self.n_samples, sim)
+        samples = simulation.get_samples(self.n_samples, sim)*sqrt(self.power_efficiency)
+        return samples
