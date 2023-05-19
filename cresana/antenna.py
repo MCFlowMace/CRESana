@@ -309,14 +309,16 @@ class AntennaArray:
         return instance
 
     @classmethod
-    def make_generic_full_cylinder_array(cls, L, R, w, gain, directivity_exponent=10, add_orthogonal_polarizations=False):
+    def make_generic_full_cylinder_array(cls, L, R, w, antenna, down_scale_L=1, down_scale_R=1, add_orthogonal_polarizations=False):
 
         la = 2*np.pi*speed_of_light/w
 
-        antenna = GenericAntenna(directivity_exponent, gain)
+        #antenna = GenericAntenna(directivity_exponent, gain)
 
-        n_rings = int(L/la)
-        n_antenna = int(2*np.pi*R/la)
+        n_rings = int(L/la)//down_scale_L
+        n_antenna = int(2*np.pi*R/la)//down_scale_R
+
+        print(f'Using array with {n_rings} rings and {n_antenna} antennas per ring')
 
         return cls.make_multi_ring_array(R, n_antenna, n_rings, -L/2, L/2, antenna, add_orthogonal_polarizations)
 
