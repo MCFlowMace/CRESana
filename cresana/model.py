@@ -17,12 +17,12 @@ from .sampling import Simulation
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, n_samples, name='NoName', power_efficiency=1., flattened=True):
+    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
         self.flattened = flattened
-        self.n_samples = n_samples
+        self._n_samples = None
         self.name = name
         self.power_efficiency = power_efficiency
         self.init_trap()
@@ -46,6 +46,14 @@ class CRESanaModel(ABC):
     def trap(self):
         pass
 
+    @property
+    def n_samples(self):
+        return self._n_samples
+    
+    @n_samples.setter
+    def n_samples(self, n_samples):
+        self._n_samples = n_samples
+
     def __call__(self, E_kin, pitch, r, t0, tau):
         z0 = 0.0
         electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
@@ -58,6 +66,9 @@ class CRESanaModel(ABC):
     
     def check_sample_time(self, electron):
         samples_required = (electron.t_start + electron.t_len)/self.dt
+
+        if self._n_samples is None:
+            raise ValueError('n_samples is not set!')
 
         if self.n_samples < samples_required:
             raise ValueError(f'Too few samples, electron signal cannot be sampled to the end! You need at least {samples_required} \
