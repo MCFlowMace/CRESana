@@ -27,13 +27,13 @@ class FSSTrapModel(CRESanaModel):
     I0 = -6.
     """
 
-    def __init__(self, z0, I0, B0, R, n_channels, sr, f_LO, n_samples, power_efficiency=1., flattened=True):
+    def __init__(self, z0, I0, B0, R, n_channels, sr, f_LO, n_samples, name='DefaultFSSTrapModel', power_efficiency=1., flattened=True):
         self._n_channels = n_channels
         self._R = R
         self._z0 = z0
         self._I0 = I0
         self._B0 = B0
-        CRESanaModel.__init__(self, sr, f_LO, n_samples, power_efficiency=power_efficiency, flattened=flattened)
+        CRESanaModel.__init__(self, sr, f_LO, n_samples, name=name, power_efficiency=power_efficiency, flattened=flattened)
 
     def init_trap(self):
         self._coil_field = get_8_coil_flat_trap(self._z0, self._I0, self._B0)
@@ -78,7 +78,7 @@ class ScaleFSSTrapModel(CRESanaModel):
     I0 = -6.
     """
 
-    def __init__(self, z0, I0, B0, R, L, sr, f_LO, n_samples, down_scale_L=1, down_scale_R=1, power_efficiency=1., flattened=True):
+    def __init__(self, z0, I0, B0, R, L, sr, f_LO, n_samples, down_scale_L=1, down_scale_R=1, name='DefaultScaleFSSTrapModel', power_efficiency=1., flattened=True):
         self._down_scale_L = down_scale_L
         self.down_scale_R = down_scale_R
         self._R = R
@@ -86,7 +86,7 @@ class ScaleFSSTrapModel(CRESanaModel):
         self._z0 = z0
         self._I0 = I0
         self._B0 = B0
-        CRESanaModel.__init__(self, sr, f_LO, n_samples, power_efficiency=power_efficiency, flattened=flattened)
+        CRESanaModel.__init__(self, sr, f_LO, n_samples, name=name, power_efficiency=power_efficiency, flattened=flattened)
 
     def init_trap(self):
         self._coil_field = get_8_coil_flat_trap(self._z0, self._I0, self._B0)
