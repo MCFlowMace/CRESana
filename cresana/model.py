@@ -98,7 +98,7 @@ class CRESanaModel(ABC):
             instance = pickle.load(f)
 
         if cls not in type(instance).__mro__:
-            raise TypeError('Pickled object is not an instance of Test')
+            raise RuntimeError('Pickled object is not an instance of CRESanaModel')
         
         print(f'Loaded CRESana model "{instance.name}"')
         
