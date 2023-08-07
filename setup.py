@@ -14,7 +14,8 @@ required = [
     "numpy",
     "scipy>=1.9",
     "matplotlib",
-    "uproot"
+    "uproot",
+    "dill"
 ]
 
 setuptools.setup(
