@@ -6,6 +6,7 @@ Date: July 19, 2021
 """
 
 import setuptools
+import versioneer
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -20,7 +21,8 @@ required = [
 
 setuptools.setup(
     name="cresana",
-    version="0.3.0",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author="Florian Thomas",
     author_email="fthomas@uni-mainz.de",
     description="https://github.com/MCFlowMace/CRESana",
