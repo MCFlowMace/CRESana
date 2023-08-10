@@ -1,0 +1,5 @@
+numpy
+scipy>=1.9
+matplotlib
+uproot
+dill>=0.3.7

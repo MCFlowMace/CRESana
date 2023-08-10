@@ -11,13 +11,8 @@ import versioneer
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-required = [
-    "numpy",
-    "scipy>=1.9",
-    "matplotlib",
-    "uproot",
-    "dill>=0.3.7"
-]
+with open("requirements.txt", "r") as fh:
+    required = [line.strip() for line in fh]
 
 setuptools.setup(
     name="cresana",
