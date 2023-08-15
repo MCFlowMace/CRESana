@@ -315,8 +315,8 @@ class AntennaArray:
 
         #antenna = GenericAntenna(directivity_exponent, gain)
 
-        n_rings = int(L/la)*np.sqrt(4*np.pi)//down_scale_L
-        n_antenna = int(2*np.pi*R/la)*np.sqrt(4*np.pi)//down_scale_R
+        n_rings = int(L/la*np.sqrt(4*np.pi))//down_scale_L
+        n_antenna = int(2*np.pi*R/la*np.sqrt(4*np.pi))//down_scale_R
 
         print(f'Using array with {n_rings} rings and {n_antenna} antennas per ring')
 
