@@ -525,17 +525,17 @@ class ArbitraryTrap(Trap):
             
         return z[ind-1], z[ind]
         
-    def _find_min_trapping_angle(self, electron):
+    def min_trapping_angle(self, r):
         #might need to be checked again for potential walls
         #after the addition of r(z) due to the field lines
-        B_max = self._b_field.get_B_max(electron.r)
-        B_min = self.B_field(electron.r, 0)
+        B_max = self._b_field.get_B_max(r)
+        B_min = self.B_field(r, 0)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
         return trapping_angle
         
     def _check_if_trapped(self, electron):
         
-        min_trapping_angle = self._find_min_trapping_angle(electron)
+        min_trapping_angle = self.min_trapping_angle(electron.r)
         
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
@@ -617,7 +617,7 @@ class ArbitraryTrap(Trap):
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
-     #   print('zmax', right)
+       # print('zmax', right)
         
         if right==0:
             

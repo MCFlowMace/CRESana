@@ -47,6 +47,16 @@ class CRESanaModel(ABC):
         pass
 
     @property
+    @abstractmethod
+    def pitch_min(self):
+        pass
+
+    @property
+    @abstractmethod
+    def r_max(self):
+        pass
+
+    @property
     def n_samples(self):
         return self._n_samples
     
