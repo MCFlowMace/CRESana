@@ -13,6 +13,7 @@ import dill as pickle
 
 from .electronsim import Electron, AnalyticSimulation
 from .sampling import Simulation
+from .physicsconstants import speed_of_light
 
 
 class CRESanaModel(ABC):
@@ -25,6 +26,8 @@ class CRESanaModel(ABC):
         self._n_samples = None
         self.name = name
         self.power_efficiency = power_efficiency
+        self.f_min = self.f_LO-self.sr/2
+        self.far_field_distance = 2*speed_of_light/self.f_min
         self.init_trap()
         self.init_array()
 
