@@ -89,7 +89,7 @@ class CRESanaModel(ABC):
         
     def check_electron_in_valid_volume(self, electron):
         if electron.r>self.r_max:
-            msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}
+            msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}'
             msg += '\n(Either it is too close to coils for the adiabatic assumption or it is not in the antenna far-field. Both assumption required in CRESana)'
             raise ValueError(msg)
 
