@@ -86,9 +86,16 @@ class CRESanaModel(ABC):
         if self.n_samples < samples_required:
             raise ValueError(f'Too few samples, electron signal cannot be sampled to the end! You need at least {samples_required} \
                              samples plus some margin to account for the additional delay time and roundoff error.')
+        
+    def check_electron_in_valid_volume(self, electron):
+        if electron.r>self.r_max:
+            msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}
+            msg += '\n(Either it is too close to coils for the adiabatic assumption or it is not in the antenna far-field. Both assumption required in CRESana)'
+            raise ValueError(msg)
 
     def _simulate(self, electron):
         self.check_sample_time(electron)
+        self.check_electron_in_valid_volume(electron)
         return self.simulate(electron)
 
     def simulate(self, electron):
