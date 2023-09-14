@@ -73,10 +73,11 @@ class IQReceiver:
 
 class Simulation:
 
-    def __init__(self, antenna_array, sampling_rate, f_LO, **kwargs):
+    def __init__(self, antenna_array, sampling_rate, f_LO, n_batches=1, **kwargs):
         self.clock = Clock(sampling_rate)
         self.antenna_array = antenna_array
         self.receiver = IQReceiver(f_LO)
+        self.n_batches = n_batches
         self.configure(kwargs)
         
     def configure(self, config_dict):
@@ -127,10 +128,14 @@ class Simulation:
         
     def get_cyclotron_phase(self, w, t):
         return w*t
-
+    
     def get_samples(self, N, electron_simulator):
-        
+
         t_sample = self.clock(N)
+
+        return get_samples_batch(t_sample, electron_simulator)
+
+    def get_samples_batch(self, t_sample, electron_simulator):
         
         retarded_electron_sim, t_sample, d_vec, d = self.retarded_calculator(t_sample, electron_simulator)
         
