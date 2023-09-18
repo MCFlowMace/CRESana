@@ -28,6 +28,7 @@ class CRESanaModel(ABC):
         self.power_efficiency = power_efficiency
         self.f_min = self.f_LO-self.sr/2
         self.far_field_distance = 2*speed_of_light/self.f_min
+        self._configurable_parameters = {}
         self.init_trap()
         self.init_array()
 
@@ -38,6 +39,19 @@ class CRESanaModel(ABC):
     @abstractmethod
     def init_array(self):
         pass
+
+    def set_configurable_parameters(self, **kwargs):
+        
+        reinit = False
+
+        for k in kwargs:
+            if k in self._configurable_parameters:
+                self._configurable_parameters[k] = kwargs[k]
+                reinit = True
+        
+        if reinit:
+            self.init_trap()
+            self.init_array()
 
     @property
     @abstractmethod
