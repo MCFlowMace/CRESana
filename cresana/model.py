@@ -68,6 +68,7 @@ class CRESanaModel(ABC):
         self._n_samples = n_samples
 
     def __call__(self, E_kin, pitch, r, t0, tau):
+        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}')
         z0 = 0.0
         electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
         data = self._simulate(electron)
