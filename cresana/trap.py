@@ -567,7 +567,7 @@ class ArbitraryTrap(Trap):
 
     def _solve_integral(self, z_val, B_f):
 
-        B_max = B_f(z_val[-1])
+        B_max = B_f(z_val[-1])+1e-15
         integrand = lambda z: 1/np.sqrt(B_max-B_f(z))
 
         if self._fast_integral:
@@ -617,9 +617,9 @@ class ArbitraryTrap(Trap):
                             x1=root_guess[1], 
                             rtol=self._root_rtol).root
         
-       # print('zmax', right)
+        print('zmax', right)
         
-        if right==0:
+        if abs(right)<1e-7:
             
             z_f = lambda t, v: np.zeros_like(t)
             self._T_buffer[electron] = float('inf')
