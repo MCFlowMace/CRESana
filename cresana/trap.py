@@ -610,8 +610,6 @@ class ArbitraryTrap(Trap):
         
         root_guess = self.guess_root(r_f, electron.pitch)
         
-        r = electron.r
-        
         right = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch), 
                             method='secant', x0=root_guess[0], 
                             x1=root_guess[1], 

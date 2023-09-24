@@ -67,6 +67,7 @@ class Electron:
     def __init__(self, E_kin, pitch, t_len=None, t_start=0, r=0, phi=0, z0=0, v_phi=0):
         self._E_kin = E_kin
         self._pitch = pitch/180*np.pi
+        r = 0. if abs(r)<1e-8 else r
         self._x0 = r*np.cos(phi)
         self._y0 = r*np.sin(phi)
         #self._z0 = z0
