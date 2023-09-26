@@ -72,11 +72,13 @@ class CRESanaModel(ABC):
         print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}')
         z0 = 0.0
         electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
-        data = self._simulate(electron)
+        data, electron_sim = self._simulate(electron)
 
         if self.flattened:
             data = data.flatten()
 
+        if self.return_electron_simulation:
+            return data, electron_sim
         return data
     
     def check_sample_time(self, electron):
@@ -108,11 +110,7 @@ class CRESanaModel(ABC):
         sim = self._get_electron_simulator(electron)
         simulation = Simulation(self.array, self.sr, self.f_LO)
         samples = simulation.get_samples(self.n_samples, sim)*sqrt(self.power_efficiency)
-
-        if self.return_electron_simulation:
-            return samples, sim.electron_sim
-        
-        return samples
+        return samples, sim.electron_sim
     
     def check_electron_simulation(self, electron):
         sim = self._get_electron_simulator(electron)
