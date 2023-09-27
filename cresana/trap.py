@@ -617,7 +617,7 @@ class ArbitraryTrap(Trap):
         
         print('zmax', right)
         
-        if abs(right)<1e-7:
+        if abs(right)<5e-4: #axial motion below 0.5mm will not be resolved
             
             z_f = lambda t, v: np.zeros_like(t)
             self._T_buffer[electron] = float('inf')
