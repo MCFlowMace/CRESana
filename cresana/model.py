@@ -18,11 +18,12 @@ from .physicsconstants import speed_of_light
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True):
+    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
         self.flattened = flattened
+        self.return_electron_simulation = return_electron_simulation
         self._n_samples = None
         self.name = name
         self.power_efficiency = power_efficiency
@@ -68,13 +69,16 @@ class CRESanaModel(ABC):
         self._n_samples = n_samples
 
     def __call__(self, E_kin, pitch, r, t0, tau):
+        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}')
         z0 = 0.0
         electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
-        data = self._simulate(electron)
+        data, electron_sim = self._simulate(electron)
 
         if self.flattened:
             data = data.flatten()
 
+        if self.return_electron_simulation:
+            return data, electron_sim
         return data
     
     def check_sample_time(self, electron):
@@ -98,15 +102,19 @@ class CRESanaModel(ABC):
         self.check_electron_in_valid_volume(electron)
         return self.simulate(electron)
 
-    def simulate(self, electron):
-
+    def _get_electron_simulator(self, electron):
         t_max = self.dt*self.n_samples
+        return AnalyticSimulation(self.trap, electron, 2*self.n_samples, t_max)
 
-        sim = AnalyticSimulation(self.trap, electron, 2*self.n_samples, t_max)
-
+    def simulate(self, electron):
+        sim = self._get_electron_simulator(electron)
         simulation = Simulation(self.array, self.sr, self.f_LO)
         samples = simulation.get_samples(self.n_samples, sim)*sqrt(self.power_efficiency)
-        return samples
+        return samples, sim.electron_sim
+    
+    def check_electron_simulation(self, electron):
+        sim = self._get_electron_simulator(electron)
+        return sim.electron_sim
 
     def dump(self, path):
         with open(path, "wb") as f:
