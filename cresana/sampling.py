@@ -133,7 +133,7 @@ class Simulation:
 
         t_sample = self.clock(N)
 
-        return get_samples_batch(t_sample, electron_simulator)
+        return self.get_samples_batch(t_sample, electron_simulator)
 
     def get_samples_batch(self, t_sample, electron_simulator):
         
