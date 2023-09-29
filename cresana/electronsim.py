@@ -155,7 +155,7 @@ class ElectronSimulator:
         pass
         
     @abstractmethod
-    def simulate(self, t):
+    def simulate(self, t, E0=None, x0=None, y0=None):
         pass
         
     @abstractmethod
@@ -170,9 +170,9 @@ class ElectronSimulator:
     def get_t_end(self):
         pass
         
-    def __call__(self, t):
+    def __call__(self, t, E0=None, x0=None, y0=None):
         
-        coords, t_traj, B, E_kin, pitch, B_direction, w = self.simulate(t)
+        coords, t_traj, B, E_kin, pitch, B_direction, w = self.simulate(t, E0, x0, y0)
         #self.enforce_causality(t, t_traj, B, E_kin, pitch)
         
         return ElectronSim(coords, t_traj, B, E_kin, 
@@ -210,7 +210,7 @@ class KassSimulation(ElectronSimulator):
         self._read_kass_sim(file_name)
         self._interpolate()
         
-    def simulate(self, t):
+    def simulate(self, t, E0=None, x0=None, y0=None):
         
         print('Using Kassiopeia simulated trajectory')
         
@@ -320,11 +320,16 @@ class AnalyticSimulation(ElectronSimulator):
         self.simulate_f = trap.simulate(electron)
         self._get_initial_sim(N)
         
-    def simulate(self, t):
+    def simulate(self, t, E0=None, x0=None, y0=None):
+
+        if E0 is None:
+            E0 = self.electron.E_kin
+            x0 = self.electron._x0
+            y0 = self.electron._y0
 
         t_electron = t - self.electron.t_start
 
-        coords, pitch, B_vals, E_kin, w = self.simulate_f(t_electron)
+        coords, pitch, B_vals, E_kin, w = self.simulate_f(t_electron, E0, x0, y0)
         B_direction = np.array([0,0,1])
         
         return coords, t, B_vals, E_kin, pitch, B_direction, w

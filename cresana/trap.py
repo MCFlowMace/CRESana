@@ -110,10 +110,10 @@ class Trap(ABC):
     def simulate(self, electron):
         
         coords_f= self.trajectory(electron)
-        phi = np.arctan2(electron._y0, electron._x0)
         
-        def f(t):
-            approximate_energy = get_energy(electron.E_kin, t, self.B_field(electron.r, 0), np.ones_like(t)*electron.pitch)
+        def f(t, E0=electron.E_kin, x0=electron._x0, y0=electron._y0):
+            phi = np.arctan2(y0, x0)
+            approximate_energy = get_energy(E0, t, self.B_field(electron.r, 0), np.ones_like(t)*electron.pitch)
             v_approximate = get_relativistic_velocity(approximate_energy)
             r, z = coords_f(t, v_approximate)
             #B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
@@ -121,7 +121,7 @@ class Trap(ABC):
             
             pitch = self.get_pitch(electron, t, B, v_approximate)
             
-            E_kin = get_energy(electron.E_kin, t, B, pitch)
+            E_kin = get_energy(E0, t, B, pitch)
         
             w = get_omega_cyclotron(B, E_kin)
             
