@@ -29,6 +29,7 @@ class CRESanaModel(ABC):
         self.power_efficiency = power_efficiency
         self.f_min = self.f_LO-self.sr/2
         self.far_field_distance = 2*speed_of_light/self.f_min
+        self.terminate_invalid_volume = True
         self.init_trap()
         self.init_array()
 
@@ -95,7 +96,8 @@ class CRESanaModel(ABC):
         if electron.r>self.r_max:
             msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}'
             msg += '\n(Either it is too close to coils for the adiabatic assumption or it is not in the antenna far-field. Both assumption required in CRESana)'
-            raise ValueError(msg)
+            if self.terminate_invalid_volume:
+                raise ValueError(msg)
 
     def _simulate(self, electron):
         self.check_sample_time(electron)
