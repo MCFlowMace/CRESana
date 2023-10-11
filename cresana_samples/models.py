@@ -13,6 +13,7 @@ from cresana import ArbitraryTrap
 from cresana import AntennaArray, IsotropicAntenna
 from cresana.bfield import get_8_coil_flat_trap
 from cresana.model import CRESanaModel
+from cresana import BoxTrap
 
 
 class FSSTrapModel(CRESanaModel):
@@ -116,3 +117,39 @@ class ScaleFSSTrapModel(CRESanaModel):
     @property    
     def array(self):
         return self._array
+    
+
+class FlatTrapModel(CRESanaModel):
+
+    def __init__(self,B0, R, L, sr, f_LO, n_channels,
+                 gain, name='DefaultFlatTrapModel', flattened=True):
+        self._R = R
+        self._L = L
+        self._B0 = B0
+        self._n_channels = n_channels
+        self._gain = gain
+        CRESanaModel.__init__(self, sr, f_LO, name=name, flattened=flattened)
+
+    def init_trap(self):
+        self._trap = BoxTrap(self._B0, self._L)
+        self._r_max = self._R-self.far_field_distance
+        self._pitch_min = 83.
+        
+    def init_array(self):
+        self._array = AntennaArray.make_multi_ring_array(self._R, self._n_channels, 1, 0., 0., IsotropicAntenna(self._gain))
+
+    @property
+    def trap(self):
+        return self._trap
+
+    @property    
+    def array(self):
+        return self._array
+    
+    @property
+    def pitch_min(self):
+        return self._pitch_min
+
+    @property
+    def r_max(self):
+        return self._r_max
