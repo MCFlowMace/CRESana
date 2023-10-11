@@ -69,10 +69,9 @@ class CRESanaModel(ABC):
     def n_samples(self, n_samples):
         self._n_samples = n_samples
 
-    def __call__(self, E_kin, pitch, r, t0, tau):
-        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}')
-        z0 = 0.0
-        electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
+    def __call__(self, E_kin, pitch, r, t0, tau, phi_r=0., z0=0.):
+        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}, phi_r={phi_r}, z0={z0}')
+        electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0, phi=phi_r)
         data, electron_sim = self._simulate(electron)
 
         if self.flattened:
