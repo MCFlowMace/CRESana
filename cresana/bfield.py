@@ -419,6 +419,33 @@ class MultiCoilField(Field):
 
         plt.show()
 
+class AnalyticRotationSymmetricField(Field):
+    """ This class implements an field that is allowed by Maxwell's equations in free space.
+    In addition we assume rotation symmetry which leads to the fact that the field within the
+    current free space is fully defined by the shape of the field along the z-axis (symmetry axis).
+    Since it is rotational symmetric, on that axis its only Bz that contributes since B_rho, B_phi
+    have to be zero. The class can be initialized by giving the polynomial describing the Bz(r=0,z)
+    field. The background field should be given by the constent term of the polynomial and is not an
+    independent parameter. """
+
+    def __init__(self, Bz_on_axis):
+        """Bz_on_axis should be an instance of np.poly1d"""
+        Field.__init__(self)
+        self.Bz_on_axis = Bz_on_axis
+        self._calculate_coefficients()
+
+    def _calculate_coefficients(self):
+        raise NotImplementedError("Not yet implemented")
+        return Bmax
+
+    def evaluate_B(self, pos, derivatives=False):
+        raise NotImplementedError("Not yet implemented")
+        return Bmax
+
+    def get_B_max(self, r):
+        raise NotImplementedError("Not yet implemented")
+        return Bmax
+
 def get_8_coil_flat_trap(z0, I0, B_background):
     """Get a MultiCoildField instance with 8 coils that produces a
     trap with a flat central field region.
