@@ -32,10 +32,10 @@ def magnetic_moment(E_kin, pitch, B0):
     return E_kin * np.sin(pitch)**2/B0
 
 def get_integrated_phase(w, t):
-    return cumtrapz(w, x=t, initial=0.0)    
+    return cumtrapz(w, x=t, initial=0.0)
 
 class Trap(ABC):
-    
+
     def __init__(self, add_gradB=True, add_curvB=True):
         self.add_gradB = add_gradB
         self.add_curvB = add_curvB
@@ -47,30 +47,30 @@ class Trap(ABC):
     @abstractmethod
     def B_field(self, r, z):
         pass
-        
+
     @abstractmethod
     def get_f(self, electron, v):
         pass
-        
+
     @abstractmethod
     def get_grad_mag(self, r, z):
         pass
-        
+
     def get_pitch_sign(self, electron, t, v):
         f = self.get_f(electron,v)
         if type(f)==np.float64:
             f = np.array([f])
         sign = np.ones_like(t)
-        
+
         #if one value of f==0 this should be equivalent to all of them being zero
         #-> no need to check on all values and make this part differ for different array values
         if f.flat[0]!=0:
             T = 1/f
             period_fraction = (t%T)/T
             sign[(period_fraction<0.25)|(period_fraction>0.75)] = -1
-        
+
         return sign
-        
+
     def get_pitch(self, electron, t, B, v):
         theta_0 = electron.pitch
         B0 = self.B_field(electron.r, 0.) #B[0] -> incorrect if z(t0)!=0  #np.min(B) -> incorrect if trap has side minima
@@ -85,72 +85,72 @@ class Trap(ABC):
 
        # print('>1',np.where(sintheta>1))
        # print('>1',sintheta[sintheta>1])
-        
+
        # print('<-1',np.where(sintheta<-1))
        # print('<-1',sintheta[sintheta<-1])
 
         theta = np.pi/2 - np.arcsin(sintheta)
         theta = sign*theta + np.pi/2
         return theta
-        
+
    # def add_gradB_motion(self, electron, v_gradB, t):
-        
+
    #     r = electron.r
    #     phi = np.arctan2(electron._y0, electron._x0)
     def calc_xy(self, r, phi, v_drift, t):
-        
+
         zero = r==0
         w_drift = np.zeros_like(v_drift)
         w_drift[~zero] = v_drift[~zero]/r[~zero]
-            
+
         phase_drift = get_integrated_phase(w_drift, t)
-        
+
         return r*np.cos(phase_drift+phi), r*np.sin(phase_drift+phi)
-        
+
     def simulate(self, electron):
-        
+
         coords_f= self.trajectory(electron)
         phi = np.arctan2(electron._y0, electron._x0)
-        
+
         def f(t):
             approximate_energy = get_energy(electron.E_kin, t, self.B_field(electron.r, 0), np.ones_like(t)*electron.pitch)
             v_approximate = get_relativistic_velocity(approximate_energy)
             r, z = coords_f(t, v_approximate)
             #B, grad, curv = self.get_grad_mag(electron.r*np.ones_like(z), z)
             B, grad, curv = self.get_grad_mag(r, z)
-            
+
             pitch = self.get_pitch(electron, t, B, v_approximate)
-            
+
             E_kin = get_energy(electron.E_kin, t, B, pitch)
-        
+
             w = get_omega_cyclotron(B, E_kin)
-            
+
             v_drift = np.zeros_like(grad)
-            
+
             if self.add_gradB:
                 v_drift -= get_v_gradB(E_kin, pitch, B, w, grad)
-                
+
             if self.add_curvB:
                 v_drift -= get_v_curv(E_kin, pitch, w, curv)
-            
+
             coords = np.stack((np.empty_like(z),np.empty_like(z),z),axis=-1)
-            
+
             coords[...,0], coords[...,1] = self.calc_xy(r, phi, v_drift, t)
-            
+
             return coords, pitch, B, E_kin, w
-        
+
         return f
 
 def harmonic_potential(r, z, B0, L0):
     a1 = B0
     a3 = B0/(3*L0**2)
     return a1 - 3/2*a3*(r**2 - 2*z**2)
-    
-    
+
+
 def harmonic_Br(r, z, B0, L0):
     a3 = B0/(3*L0**2)
     return -3*r*z*a3
-    
+
 
 def flat_potential(z, B0):
     if type(z) == np.ndarray:
@@ -159,27 +159,27 @@ def flat_potential(z, B0):
         potential = np.array([B0])
 
     return potential
-    
+
 
 def get_z_harmonic(t, z_max, omega, phi):
     return z_max*np.sin(omega*t + phi)
-        
-        
+
+
 def get_vz_harmonic(t, z_max, omega, phi):
     return z_max*omega*np.cos(omega*t + phi)
-    
+
 
 def get_z_flat(t, z_max, omega, phi):
     return z_max*sawtooth(t*omega + np.pi/2 + phi, width=0.5)
-        
+
 
 def get_omega_harmonic(v0, pitch, r, L0):
     return v0*np.sin(pitch)/L0*np.sqrt(1/(1-r**2/(2*L0**2)))
-    
+
 
 def get_z_max_harmonic(L0, pitch, r):
     return np.sqrt(L0**2-0.5*r**2)/np.tan(pitch)
-    
+
 
 class HarmonicTrap(Trap):
 
@@ -197,8 +197,8 @@ class HarmonicTrap(Trap):
        # return lambda t: get_pos(   np.ones_like(t)*electron._x0,
        #                             np.ones_like(t)*electron._y0,
        #                             get_z_harmonic(t, z_max, omega, phi0))
-        return lambda t, z: (np.ones_like(t)*electron.r, get_z_harmonic(t, z_max, omega, phi0))                          
-                                    
+        return lambda t, z: (np.ones_like(t)*electron.r, get_z_harmonic(t, z_max, omega, phi0))
+
     def B_field(self, r, z):
         """
         the analytic harmonic field solution assumes in its integration that
@@ -209,45 +209,45 @@ class HarmonicTrap(Trap):
         for the actual B_mag use absolute_B_field
         """
         return harmonic_potential(r, z, self._B0, self._L0)
-                        
+
     def absolute_B_field(self, r, z):
-        return np.sqrt(harmonic_potential(r, z, self._B0, self._L0)**2 
+        return np.sqrt(harmonic_potential(r, z, self._B0, self._L0)**2
                         + harmonic_Br(r, z, self._B0, self._L0)**2)
-        
+
     def pitch(self, electron):
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
         phi0 = np.arcsin(electron._z0/z_max)
-        
+
         def f(t):
             vz = get_vz_harmonic(t, z_max, omega, phi0)
             return np.arccos(vz/electron.v0)
-        
+
         return f
 
     def _get_omega(self, electron):
         return get_omega_harmonic(electron.v0, electron.pitch, electron.r, self._L0)
-        
+
     def _get_z_max(self, electron):
         return get_z_max_harmonic(self._L0, electron.pitch, electron.r)
-        
+
     def get_f(self, electron, v):
         return self._get_omega(electron)/(2*np.pi)
-        
+
     def get_grad_mag(self, r, z):
-        
+
         B = self.B_field(r, z)
         grad = self._get_orthogonal_grad(r, z, B)
-        
+
         return B, grad, 0
-        
+
     def _get_orthogonal_grad(self, r, z, B):
         a3 = self._B0/(3*self._L0**2)
         a1 = self._B0
-        grad = -0.75*r*a3*(12*r*z*a3 
+        grad = -0.75*r*a3*(12*r*z*a3
                         + (2*a1-3*(r**2 - 2*z**2)*a3)
                          *(2*a1 - 3*(r**2 + 4*z**2)*a3))/B**2
-        
+
         return grad
 
 class BoxTrap(Trap):
@@ -271,14 +271,14 @@ class BoxTrap(Trap):
         omega = self._get_omega(electron)
         z_max = self._get_z_max()
         phi0 =  electron._z0/z_max*np.pi/2
-        
+
         def f(t):
             delta = np.pi/2 - electron.pitch
             sign = square(t*omega + np.pi/2 + phi0)
             return np.pi/2 - sign*delta
-        
+
         return f
-        
+
     def B_field(self, r, z):
         B = flat_potential(z, self._B0)
 
@@ -286,11 +286,11 @@ class BoxTrap(Trap):
         B[z<-self._L/2] = np.inf
 
         return B
-        
+
     def get_grad_mag(self, r, z):
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
-        
+
         return B, grad, 0
 
     def _get_omega(self, electron):
@@ -345,17 +345,17 @@ class BathtubTrap(Trap):
         v_axial = electron.v0 * np.cos(electron.pitch)
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
-        
+
         if abs(electron._z0)>(z_max+self._L/2):
             raise ValueError(f'Electron cannot be trapped at z0={electron._z0} because for pitch={electron._pitch/np.pi*180}° z_max=+-{z_max+self._L/2:.3f}')
-        
+
         T = self._period(electron)
 
         # z(t=0) = left end of flat region
         t1 = self._L/v_axial # electron reaches right end of flat region -> goes into harmonic region
         t2 = t1 + np.pi/omega # electron reaches right end of flat region again
         t3 = t2 + t1 # electron reaches left end of flat region again -> goes into harmonic region
-        
+
         if abs(electron._z0) < self._L/2:
             t0 = electron._z0/v_axial
         elif electron._z0>0:
@@ -370,7 +370,7 @@ class BathtubTrap(Trap):
         right_harmonic = (t>t1)&(t<=2)
         second_flat = (t>t2)&(t<=t3)
         left_harmonic = t>t3
-        
+
         z = np.zeros(t.shape)
         z[first_flat] = -self._L/2 + v_axial*t[first_flat]
         z[right_harmonic] = self._L/2 + z_max * np.sin(omega*(t[right_harmonic] - t1))
@@ -378,29 +378,29 @@ class BathtubTrap(Trap):
         z[left_harmonic] = -self._L/2 - z_max * np.sin(omega*(t[left_harmonic] - t3))
 
         return z
-        
+
     def pitch(self, electron):
         v_axial = electron.v0 * np.cos(electron.pitch)
         omega = self._get_omega(electron)
         z_max = self._get_z_max(electron)
-        
+
         if abs(electron._z0)>(z_max+self._L/2):
             raise ValueError(f'Electron cannot be trapped at z0={electron._z0} because for pitch={electron._pitch/np.pi*180}° z_max=+-{z_max+self._L/2:.3f}')
-        
+
         T = self._period(electron)
 
         # z(t=0) = left end of flat region
         t1 = self._L/v_axial # electron reaches right end of flat region -> goes into harmonic region
         t2 = t1 + np.pi/omega # electron reaches right end of flat region again
         t3 = t2 + t1 # electron reaches left end of flat region again -> goes into harmonic region
-        
+
         if abs(electron._z0) < self._L/2:
             t0 = electron._z0/v_axial
         elif electron._z0>0:
             t0 = t1/2 + 1/omega*np.arcsin((electron._z0 - self._L/2)/z_max)
         else:
             t0 = -t1/2 - 1/omega*np.arcsin((-electron._z0 - self._L/2)/z_max)
-            
+
         def f(t):
 
             t = t + t1/2 + t0 #zero point shifted such that z(0) = z0
@@ -410,30 +410,30 @@ class BathtubTrap(Trap):
             right_harmonic = (t>t1)&(t<=2)
             second_flat = (t>t2)&(t<=t3)
             left_harmonic = t>t3
-            
+
             delta = np.pi/2 - electron.pitch
-            
+
             pitch = np.zeros(t.shape)
             pitch[first_flat] = np.pi/2 - delta
-            
+
             vz = get_vz_harmonic(t[right_harmonic] - t1, z_max, omega, 0.)
             pitch[right_harmonic] = np.arccos(vz/electron.v0) # self._L/2 + z_max * np.sin(omega*(t[right_harmonic] - t1))
-            
+
             pitch[second_flat] = np.pi/2 + delta
-            
+
             vz = -get_vz_harmonic(t[left_harmonic] - t3, z_max, omega, 0.)
             pitch[left_harmonic] = np.arccos(vz/electron.v0)
             #pitch[left_harmonic] = -self._L/2 - z_max * np.sin(omega*(t[left_harmonic] - t3))
 
             return pitch
-            
+
         return f
-        
+
     def get_grad_mag(self, r, z):
-        
+
         B = self.B_field(r, z)
         grad = np.zeros_like(B)
-        
+
         return B, grad
 
     def _get_omega(self, electron):
@@ -472,11 +472,11 @@ class ArbitraryTrap(Trap):
 
     def trajectory(self, electron):
         z_f, r_f = self._solve_trajectory(electron)
-        
+
         def coords(t, v):
             z = z_f(t, v)
             r = r_f(np.abs(z))
-            
+
             return r, z # get_pos(r, y, z)
 
         return coords
@@ -484,47 +484,47 @@ class ArbitraryTrap(Trap):
     def B_field(self, r, z):
 
         pos = np.stack(np.broadcast_arrays(r,z),axis=-1)
-        
+
         B, _, _ = self._b_field.get_grad_mag(pos)
         return B
 
     def get_f(self, electron, v=None):
-        
+
         if v is None:
             v = get_relativistic_velocity(electron.E_kin)
-        
+
         if electron not in self._T_buffer:
             self._solve_trajectory(electron)
-            
+
         T = self._T_buffer[electron]/v
 
         return 1/T
-        
+
     def get_grad_mag(self, r, z):
         pos = np.stack((r,z),axis=-1)
         return self._b_field.get_grad_mag(pos)
-        
+
     def adiabatic_difference(self,r_f, z, pitch):
         return np.sin(pitch)**2*self.B_field(r_f(z), z)-self.B_field(r_f(0), 0.)
-        
+
     def guess_root(self, r_f, pitch):
         z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
         diff = self.adiabatic_difference(r_f, z, pitch)
         positives = np.argwhere(diff>0) #np.argmax(diff>0)
-        
+
         if len(positives)==0:
             raise RuntimeError('Found guess of root at z=root_guess_max -> Consider increasing "root_guess_max" and/or "root_guess_steps"!')
-            
+
         ind = positives[0][0]
-        
+
         if ind==0:
             raise RuntimeError('Found guess of root at z=0 -> Consider increasing "root_guess_steps" or reducing "root_guess_max"!')
-        
+
        # if ind==len(z)-1:
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
-            
+
         return z[ind-1], z[ind]
-        
+
     def _find_min_trapping_angle(self, electron):
         #might need to be checked again for potential walls
         #after the addition of r(z) due to the field lines
@@ -532,14 +532,14 @@ class ArbitraryTrap(Trap):
         B_min = self.B_field(electron.r, 0)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
         return trapping_angle
-        
+
     def _check_if_trapped(self, electron):
-        
+
         min_trapping_angle = self._find_min_trapping_angle(electron)
-        
+
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
-    
+
     def _get_B_f(self, r_f, z_max):
 
         if self._b_interpolation_steps is not None:
@@ -597,50 +597,61 @@ class ArbitraryTrap(Trap):
             integral[i+1] = integral[i] + quad(integrand, z_val[i],z_val[i+1])[0]
 
         return integral
-        
-    def _solve_trajectory(self, electron):
-        
+
+    def find_zmax(self, electron):
+
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
         r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
         r_f = lambda z: r_f_unsigned(np.abs(z))
-        
+
         self._check_if_trapped(electron)
-        
+
         root_guess = self.guess_root(r_f, electron.pitch)
-        
-        r = electron.r
-        
-        right = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch), 
-                            method='secant', x0=root_guess[0], 
-                            x1=root_guess[1], 
+
+        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
+                            method='secant', x0=root_guess[0],
+                            x1=root_guess[1],
                             rtol=self._root_rtol).root
-        
-     #   print('zmax', right)
-        
+        return zmax
+
+    def _solve_trajectory(self, electron):
+
+        """
+        assuming the minimum is at z=0 and the profile is symmetric
+        """
+        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
+        r_f = lambda z: r_f_unsigned(np.abs(z))
+
+        self._check_if_trapped(electron)
+
+        r = electron.r
+
+        right = self.find_zmax(electron)
+
         if right==0:
-            
+
             z_f = lambda t, v: np.zeros_like(t)
             self._T_buffer[electron] = float('inf')
-            
+
         else:
 
             B_f = self._get_B_f(r_f, right)
 
             z_val = np.linspace(0, right, self._integration_steps)
             integral = self._solve_integral(z_val, B_f)
-            
+
             v0 = get_relativistic_velocity(electron.E_kin)
             dist = integral * np.sqrt(B_f(right))
 
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
-            
+
             def z_f(t_in, v):
-            
+
                 if not self._energy_loss:
                     v = np.ones_like(v)*v0
-                
+
                 t_end = dist[-1]/v
 
                 t_out = t_in.copy()
@@ -659,7 +670,7 @@ class ArbitraryTrap(Trap):
                 res[~negative] = interpolation(t_out[~negative]*v[~negative])
 
                 return res
-                
+
             self._T_buffer[electron] = 4*dist[-1]#/v0
-        
+
         return z_f, r_f
