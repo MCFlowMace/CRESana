@@ -443,10 +443,16 @@ class AnalyticRotationSymmetricField(Field):
         z = pos[...,1]
         r = np.sqrt(rho**2 + z**2)
 
+        on_axis = rho==0
+        on_center = r==0
+
         B = np.zeros_like(pos)
         for l, a_l in self.coef_al.items():
-            B[...,0] += a_l*(l+1) * r**(l+1) /rho * (legendre(l+1)(z/r) - z/r * legendre(l)(z/r)) # Brho
-            B[...,1] += a_l*r**l*(l+1)*legendre(l)(z/r)                                           # Bz
+            B[~on_axis,0] -= a_l*(l+1) * r[~on_axis]**(l+1) / rho[~on_axis] * (legendre(l+1)(z[~on_axis]/r[~on_axis]) - z[~on_axis]/r[~on_axis] * legendre(l)(z[~on_axis]/r[~on_axis])) # Brho
+            B[~on_center,1] += a_l*r[~on_center]**l*(l+1)*legendre(l)(z[~on_center]/r[~on_center])                                           # Bz
+
+        B[on_axis,0] = 0
+        B[on_center,1] = 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
 
         if not derivatives:
             return B
@@ -454,9 +460,13 @@ class AnalyticRotationSymmetricField(Field):
         dB = np.zeros(pos.shape[:-1]+(3,))
         for l, a_l in self.coef_al.items():
             if l==0: continue
-            dB[...,0] += a_l*l/rho**2*(((l+1)*z**2 - l*r**2)*r**(l-1)*legendre(l-1)(z/r) - z*r**l*legendre(l)(z/r)) # dBrho_drho
-            dB[...,1] += a_l*(l+1)*l/rho*(r**l*legendre(l)(z/r) - z*r**(l-1)*legendre(l-1)(z/r))                    # dBz_drho = dBrho_dz
-            dB[...,2] += a_l*r**(l-1)*l*(l+1)*legendre(l-1)(z/r)                                                    # dBz_dz
+            dB[~on_axis,0] += a_l*l/rho[~on_axis]**2*(((l+1)*z[~on_axis]**2 - l*r[~on_axis]**2)*r[~on_axis]**(l-1)*legendre(l-1)(z[~on_axis]/r[~on_axis]) - z[~on_axis]*r[~on_axis]**l*legendre(l)(z[~on_axis]/r[~on_axis])) # dBrho_drho
+            dB[~on_axis,1] += a_l*(l+1)*l/rho[~on_axis]*(r[~on_axis]**l*legendre(l)(z[~on_axis]/r[~on_axis]) - z[~on_axis]*r[~on_axis]**(l-1)*legendre(l-1)(z[~on_axis]/r[~on_axis]))                    # dBz_drho = dBrho_dz
+            dB[~on_center,2] += a_l*r[~on_center]**(l-1)*l*(l+1)*legendre(l-1)(z[~on_center]/r[~on_center])                                                    # dBz_dz
+
+        dB[on_axis,0] = 0
+        dB[on_axis,1] = 0
+        dB[on_center,2] = 0
 
         return B, dB
 
