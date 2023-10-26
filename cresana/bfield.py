@@ -435,12 +435,30 @@ class AnalyticRotationSymmetricField(Field):
         self._calculate_coefficients()
 
     def _calculate_coefficients(self):
-        raise NotImplementedError("Not yet implemented")
-        return Bmax
+        poly = self.Bz_on_axis
+        self.coef_al = {i: c/(i+1) for i, c in enumerate(poly.coefficients[::-1]) if c != 0}
 
     def evaluate_B(self, pos, derivatives=False):
-        raise NotImplementedError("Not yet implemented")
-        return Bmax
+        rho = np.sqrt(x**2 + y**2)
+        r = np.sqrt(rho**2 + z**2)
+
+        B = np.zeros_like(pos)
+        for l, a_l in self.coef_al.items():
+            B[:,0] += a_l*r**l*(l+1)*legendre(l)(z/r)                                           # Bz
+            B[:,1] += a_l*(l+1) * r**(l+1) /rho * (legendre(l+1)(z/r) - z/r * legendre(l)(z/r)) # Brho
+
+        if not derivatives:
+            return B
+
+        dB = np.zeros(pos.shape[:-1]+(3,))
+        for l, a_l in self.coef_al.items():
+            if l==0: continue
+            dB[:,0] += a_l*r**(l-1)*l*(l+1)*legendre(l-1)(z/r)                                                    # dBz_dz
+            dB[:,1] += a_l*(l+1)*l/rho*(r**l*legendre(l)(z/r) - z*r**(l-1)*legendre(l-1)(z/r))                    # dBz_drho
+            dB[:,2] += a_l*l/rho**2*(((l+1)*z**2 - l*r**2)*r**(l-1)*legendre(l-1)(z/r) - z*r**l*legendre(l)(z/r)) # dBrho_drho
+
+        return B, dB
+
 
     def get_B_max(self, r):
         raise NotImplementedError("Not yet implemented")
