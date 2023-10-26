@@ -10,7 +10,7 @@ Date: February 18, 2023
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, make_interp_spline
-from scipy.special import ellipk, ellipe, ellipkm1
+from scipy.special import ellipk, ellipe, ellipkm1, legendre
 from warnings import warn
 import matplotlib.pyplot as plt
 
@@ -439,13 +439,14 @@ class AnalyticRotationSymmetricField(Field):
         self.coef_al = {i: c/(i+1) for i, c in enumerate(poly.coefficients[::-1]) if c != 0}
 
     def evaluate_B(self, pos, derivatives=False):
-        rho = np.sqrt(x**2 + y**2)
+        rho = pos[...,0]
+        z = pos[...,1]
         r = np.sqrt(rho**2 + z**2)
 
         B = np.zeros_like(pos)
         for l, a_l in self.coef_al.items():
-            B[:,0] += a_l*r**l*(l+1)*legendre(l)(z/r)                                           # Bz
-            B[:,1] += a_l*(l+1) * r**(l+1) /rho * (legendre(l+1)(z/r) - z/r * legendre(l)(z/r)) # Brho
+            B[...,0] += a_l*(l+1) * r**(l+1) /rho * (legendre(l+1)(z/r) - z/r * legendre(l)(z/r)) # Brho
+            B[...,1] += a_l*r**l*(l+1)*legendre(l)(z/r)                                           # Bz
 
         if not derivatives:
             return B
@@ -453,9 +454,9 @@ class AnalyticRotationSymmetricField(Field):
         dB = np.zeros(pos.shape[:-1]+(3,))
         for l, a_l in self.coef_al.items():
             if l==0: continue
-            dB[:,0] += a_l*r**(l-1)*l*(l+1)*legendre(l-1)(z/r)                                                    # dBz_dz
-            dB[:,1] += a_l*(l+1)*l/rho*(r**l*legendre(l)(z/r) - z*r**(l-1)*legendre(l-1)(z/r))                    # dBz_drho
-            dB[:,2] += a_l*l/rho**2*(((l+1)*z**2 - l*r**2)*r**(l-1)*legendre(l-1)(z/r) - z*r**l*legendre(l)(z/r)) # dBrho_drho
+            dB[...,0] += a_l*l/rho**2*(((l+1)*z**2 - l*r**2)*r**(l-1)*legendre(l-1)(z/r) - z*r**l*legendre(l)(z/r)) # dBrho_drho
+            dB[...,1] += a_l*(l+1)*l/rho*(r**l*legendre(l)(z/r) - z*r**(l-1)*legendre(l-1)(z/r))                    # dBz_drho = dBrho_dz
+            dB[...,2] += a_l*r**(l-1)*l*(l+1)*legendre(l-1)(z/r)                                                    # dBz_dz
 
         return B, dB
 
