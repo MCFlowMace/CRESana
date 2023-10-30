@@ -470,10 +470,22 @@ class AnalyticRotationSymmetricField(Field):
 
         return B, dB
 
-
     def get_B_max(self, r):
-        raise NotImplementedError("Not yet implemented")
-        return Bmax
+        # we ignore the r, sorry
+        # if largest a_l coefficient is positive we get to infinity at large z
+        if self.coef_al[max(self.coef_al.keys())] > 0:
+            return np.inf
+        # if all coefficients are negative we have the maximum at z=0
+        if np.all([a_l<0 for l, a_l in self.coef_al.items() if l!=0]):
+            return 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
+
+        # We get the roots of dB/dz
+        coef = [l*(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(1, max(self.coef_al.keys())+1))]
+        poly = np.poly1d(coef)
+        # The maximum is at any of the roots so evaluate the field at the roots and take the max of the b values.
+        # Only consider real roots
+        return np.max(self.evaluate_B(np.array([[0, np.real(root)] for root in poly.roots if np.imag(root) == 0])))
+
 
 def get_8_coil_flat_trap(z0, I0, B_background):
     """Get a MultiCoildField instance with 8 coils that produces a
