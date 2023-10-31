@@ -105,13 +105,13 @@ class Antenna(ABC):
 
 class IsotropicAntenna(Antenna):
     
-    def __init__(self):
-        
+    def __init__(self, gain=1.):
         Antenna.__init__(self)
+        self.gain = gain
         
     def transfer_function(self, w_receiver):
         
-        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi/(free_space_impedance*w_receiver**2))
+        tf_abs = np.sqrt(standard_impedance*speed_of_light**2*np.pi*self.gain/(free_space_impedance*w_receiver**2))
         
         return tf_abs + 0.0j
         
@@ -238,10 +238,10 @@ class AntennaArray:
         r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
         r_project_cross = project_on_plane(-d_vec, self.polarizations)
         
-        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
+        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
                                        np.expand_dims(self.cross_polarizations, 1))
 
-        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
+        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
                                        np.expand_dims(self.polarizations, 1))
         
         return theta, phi
@@ -312,11 +312,10 @@ class AntennaArray:
     def make_generic_full_cylinder_array(cls, L, R, w, antenna, down_scale_L=1, down_scale_R=1, add_orthogonal_polarizations=False):
 
         la = 2*np.pi*speed_of_light/w
+        gain = antenna.get_tf_gain(w) #this will not work correctly for a slotted waveguide antenna
 
-        #antenna = GenericAntenna(directivity_exponent, gain)
-
-        n_rings = int(L/la)//down_scale_L
-        n_antenna = int(2*np.pi*R/la)//down_scale_R
+        n_rings = int(L/la*np.sqrt(4*np.pi/gain))//down_scale_L
+        n_antenna = int(2*np.pi*R/la*np.sqrt(4*np.pi/gain))//down_scale_R
 
         print(f'Using array with {n_rings} rings and {n_antenna} antennas per ring')
 
