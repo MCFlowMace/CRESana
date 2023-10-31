@@ -524,19 +524,19 @@ class ArbitraryTrap(Trap):
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
 
         return z[ind-1], z[ind]
-
-    def _find_min_trapping_angle(self, electron):
+        
+    def min_trapping_angle(self, r):
         #might need to be checked again for potential walls
         #after the addition of r(z) due to the field lines
-        B_max = self._b_field.get_B_max(electron.r)
-        B_min = self.B_field(electron.r, 0)
+        B_max = self._b_field.get_B_max(r)
+        B_min = self.B_field(r, 0)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
         return trapping_angle
 
     def _check_if_trapped(self, electron):
-
-        min_trapping_angle = self._find_min_trapping_angle(electron)
-
+        
+        min_trapping_angle = self.min_trapping_angle(electron.r)
+        
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
 
@@ -567,7 +567,7 @@ class ArbitraryTrap(Trap):
 
     def _solve_integral(self, z_val, B_f):
 
-        B_max = B_f(z_val[-1])
+        B_max = B_f(z_val[-1])+1e-15
         integrand = lambda z: 1/np.sqrt(B_max-B_f(z))
 
         if self._fast_integral:
@@ -599,7 +599,11 @@ class ArbitraryTrap(Trap):
         return integral
 
     def find_zmax(self, electron):
-
+        zmax, _ = self._find_zmax_and_rf(electron)
+        return zmax
+    
+    def _find_zmax_and_rf(self, electron):
+        
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
@@ -614,21 +618,15 @@ class ArbitraryTrap(Trap):
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
                             rtol=self._root_rtol).root
-        return zmax
+        return zmax, r_f
 
     def _solve_trajectory(self, electron):
 
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
-        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
-        r_f = lambda z: r_f_unsigned(np.abs(z))
 
-        self._check_if_trapped(electron)
-
-        r = electron.r
-
-        right = self.find_zmax(electron)
+        right, r_f = self._find_zmax_and_rf(electron)
 
         if right==0:
 
