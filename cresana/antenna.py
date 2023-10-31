@@ -238,10 +238,10 @@ class AntennaArray:
         r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
         r_project_cross = project_on_plane(-d_vec, self.polarizations)
         
-        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
+        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
                                        np.expand_dims(self.cross_polarizations, 1))
 
-        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
+        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
                                        np.expand_dims(self.polarizations, 1))
         
         return theta, phi
