@@ -35,6 +35,7 @@ simulation = trap.simulate(electron)
 
 #query cached frequency
 print('Axial frequency', trap.get_f(electron))
+print('zmax', trap.find_zmax(electron))
 
 tmax = 40.e-6
 N = 2000
