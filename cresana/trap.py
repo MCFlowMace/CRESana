@@ -599,7 +599,11 @@ class ArbitraryTrap(Trap):
         return integral
 
     def find_zmax(self, electron):
-
+        zmax, _ = self._find_zmax_and_rf(electron)
+        return zmax
+    
+    def _find_zmax_and_rf(self, electron):
+        
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
@@ -614,21 +618,15 @@ class ArbitraryTrap(Trap):
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
                             rtol=self._root_rtol).root
-        return zmax
+        return zmax, r_f
 
     def _solve_trajectory(self, electron):
 
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
-        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
-        r_f = lambda z: r_f_unsigned(np.abs(z))
 
-        self._check_if_trapped(electron)
-
-        r = electron.r
-
-        right = self.find_zmax(electron)
+        right, r_f = self._find_zmax_and_rf(electron)
 
         if right==0:
 
