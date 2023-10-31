@@ -151,6 +151,7 @@ class Simulation:
             P_transmitted = ev*get_radiated_power(retarded_electron_sim.E_kin, 
                                                 retarded_electron_sim.pitch, 
                                                 retarded_electron_sim.B_vals)
+            phase = 0.
         
         if not self.use_polarization:
             print('Sampling without polarization mismatch')
