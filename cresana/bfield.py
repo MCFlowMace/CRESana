@@ -2,7 +2,7 @@
 
 """
 
-Author: F. Thomas
+Authors: F. Thomas, R. Reimann
 Date: February 18, 2023
 
 """
