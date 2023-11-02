@@ -362,7 +362,10 @@ class MultiCoilField(Field):
         else:
             # maximum is somewhere between the outer most coils
             # fist make a guess by scanning the full range
-            z = np.linspace(min([c.z0 for c in self.coils]), max([c.z0 for c in self.coils]), 100)
+            zmin = np.min([c.z0 for c in self.coils])
+            zmax = np.max([c.z0 for c in self.coils])
+            # avoid that the maximum is just at the boundary of the scanning range and extent the scan slightly left and right
+            z = np.linspace(zmin-0.1*(zmax-zmin), zmax+0.1*(zmax-zmin), 100)
             Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
             idx = np.argmax(Bz)
 
