@@ -2,14 +2,15 @@
 
 """
 
-Author: F. Thomas
+Authors: F. Thomas, R. Reimann
 Date: February 18, 2023
 
 """
 
+from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, make_interp_spline
-from scipy.special import ellipk, ellipe, ellipkm1
+from scipy.special import ellipk, ellipe, ellipkm1, legendre
 from scipy.optimize import root_scalar
 from warnings import warn
 import matplotlib.pyplot as plt
@@ -93,72 +94,22 @@ class Coil:
 
         return B
 
+class Field(ABC):
 
-class MultiCoilField:
-
-    def __init__(self, coils, background_field):
-        self.coils = coils
-        self.background_field = background_field
+    def __init__(self):
         self.Bmag_f = None
         self.B_f = None
 
-
-    def _is_potential_well(self):
-        n = 0
-        for c in self.coils:
-            if c.current<0:
-                n+=1
-
-        if n!=0 and n!=len(self.coils):
-            warn('It seems your trap is using coils with positive and negative currents!'
-            + 'This could be what you want, but "MultiCoilField.get_B_max was implemented'
-            + ' under the assumption that this does not happen so please check this again!')
-
-        # the trap is a potential well if all coils have negative current
-        return n==len(self.coils)
-
+    @abstractmethod
     def get_B_max(self, r):
+        """ Return maximal magnetic field for a given radius """
+        pass
 
-        if self._is_potential_well():
-            return self.background_field
-        else:
-            # maximum is somewhere between the outer most coils
-            # fist make a guess by scanning the full range
-            z = np.linspace(min([c.z0 for c in self.coils]), max([c.z0 for c in self.coils]), 100)
-            Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
-            idx = np.argmax(Bz)
-
-            # then fine tune by getting dBz/dz = 0 at the position of the maximum
-            max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
-                                  method='secant', x0=z[idx-1], x1=z[idx+1]).root
-
-            # evaluate the field at the maximum
-            B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
-            return np.linalg.norm(B_max)
-
+    @abstractmethod
     def evaluate_B(self, pos, derivatives=False):
-
-        if not derivatives:
-
-            B = np.zeros_like(pos)
-
-            for c in self.coils:
-                B += c.evaluate_B(pos)
-
-            B[...,1] += self.background_field
-
-            return B
-        B = np.zeros_like(pos)
-        dB = np.zeros(pos.shape[:-1]+(3,))
-
-        for c in self.coils:
-            B_, dB_ = c.evaluate_B(pos, derivatives=True)
-            B += B_
-            dB += dB_
-
-        B[...,1] += self.background_field
-
-        return B, dB
+        """ Return magnetic field vector for each positiont given by pos.
+            If derivatives is True, also return derivatives. """
+        pass
 
     def get_grad_mag(self, pos):
 
@@ -252,34 +203,6 @@ class MultiCoilField:
         pos_c = self.to_cylindric(pos)
 
         return self.B_f((pos_c[...,0], pos_c[...,1]))[...,1]
-
-    def visualize(self, name=None):
-
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
-
-        ax.set_xlabel('x [m]')
-        ax.set_ylabel('y [m]')
-        ax.set_zlabel('z [m]')
-        ax.view_init(vertical_axis='y')
-        ax.set_title(f'Background field {self.background_field:5.3f} T')
-
-        t = np.linspace(0,2*np.pi, 1000)
-
-        for c in self.coils:
-
-            r_coil = c.radius
-            z0 = c.z0
-
-            xline = r_coil*np.cos(t)
-            yline = r_coil*np.sin(t)
-            zline = np.ones_like(t)*z0
-            ax.plot3D(xline, yline, zline)
-
-        if name is not None:
-            plt.savefig(name+'.png', dpi=600)
-
-        plt.show()
 
     def plot_field_2d(self, rmax, zmax, nr, nz, name=None):
 
@@ -411,6 +334,164 @@ class MultiCoilField:
             plt.savefig(name+'_field_lines.png', dpi=600)
 
         plt.show()
+
+class MultiCoilField(Field):
+    def __init__(self, coils, background_field):
+        Field.__init__(self)
+        self.coils = coils
+        self.background_field = background_field
+
+    def _is_potential_well(self):
+        n = 0
+        for c in self.coils:
+            if c.current<0:
+                n+=1
+
+        if n!=0 and n!=len(self.coils):
+            warn('It seems your trap is using coils with positive and negative currents!'
+            + 'This could be what you want, but "MultiCoilField.get_B_max was implemented'
+            + ' under the assumption that this does not happen so please check this again!')
+
+        # the trap is a potential well if all coils have negative current
+        return n==len(self.coils)
+
+    def get_B_max(self, r):
+
+        if self._is_potential_well():
+            return self.background_field
+        else:
+            # maximum is somewhere between the outer most coils
+            # fist make a guess by scanning the full range
+            z = np.linspace(min([c.z0 for c in self.coils]), max([c.z0 for c in self.coils]), 100)
+            Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
+            idx = np.argmax(Bz)
+
+            # then fine tune by getting dBz/dz = 0 at the position of the maximum
+            max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
+                                  method='secant', x0=z[idx-1], x1=z[idx+1]).root
+
+            # evaluate the field at the maximum
+            B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
+            return np.linalg.norm(B_max)
+
+    def evaluate_B(self, pos, derivatives=False):
+
+        if not derivatives:
+
+            B = np.zeros_like(pos)
+
+            for c in self.coils:
+                B += c.evaluate_B(pos)
+
+            B[...,1] += self.background_field
+
+            return B
+        B = np.zeros_like(pos)
+        dB = np.zeros(pos.shape[:-1]+(3,))
+
+        for c in self.coils:
+            B_, dB_ = c.evaluate_B(pos, derivatives=True)
+            B += B_
+            dB += dB_
+
+        B[...,1] += self.background_field
+
+        return B, dB
+
+    def visualize(self, name=None):
+
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        ax.set_zlabel('z [m]')
+        ax.view_init(vertical_axis='y')
+        ax.set_title(f'Background field {self.background_field:5.3f} T')
+
+        t = np.linspace(0,2*np.pi, 1000)
+
+        for c in self.coils:
+
+            r_coil = c.radius
+            z0 = c.z0
+
+            xline = r_coil*np.cos(t)
+            yline = r_coil*np.sin(t)
+            zline = np.ones_like(t)*z0
+            ax.plot3D(xline, yline, zline)
+
+        if name is not None:
+            plt.savefig(name+'.png', dpi=600)
+
+        plt.show()
+
+class AnalyticRotationSymmetricField(Field):
+    """ This class implements an field that is allowed by Maxwell's equations in free space.
+    In addition we assume rotation symmetry which leads to the fact that the field within the
+    current free space is fully defined by the shape of the field along the z-axis (symmetry axis).
+    Since it is rotational symmetric, on that axis its only Bz that contributes since B_rho, B_phi
+    have to be zero. The class can be initialized by giving the polynomial describing the Bz(r=0,z)
+    field. The background field should be given by the constent term of the polynomial and is not an
+    independent parameter. """
+
+    def __init__(self, Bz_on_axis):
+        """Bz_on_axis should be an instance of np.poly1d"""
+        Field.__init__(self)
+        self.Bz_on_axis = Bz_on_axis
+        self._calculate_coefficients()
+
+    def _calculate_coefficients(self):
+        poly = self.Bz_on_axis
+        self.coef_al = {i: c/(i+1) for i, c in enumerate(poly.coefficients[::-1]) if c != 0}
+
+    def evaluate_B(self, pos, derivatives=False):
+        rho = pos[...,0]
+        z = pos[...,1]
+        r = np.sqrt(rho**2 + z**2)
+
+        on_axis = rho==0
+        on_center = r==0
+
+        B = np.zeros_like(pos)
+        for l, a_l in self.coef_al.items():
+            B[~on_axis,0] -= a_l*(l+1) * r[~on_axis]**(l+1) / rho[~on_axis] * (legendre(l+1)(z[~on_axis]/r[~on_axis]) - z[~on_axis]/r[~on_axis] * legendre(l)(z[~on_axis]/r[~on_axis])) # Brho
+            B[~on_center,1] += a_l*r[~on_center]**l*(l+1)*legendre(l)(z[~on_center]/r[~on_center])                                           # Bz
+
+        B[on_axis,0] = 0
+        B[on_center,1] = 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
+
+        if not derivatives:
+            return B
+
+        dB = np.zeros(pos.shape[:-1]+(3,))
+        for l, a_l in self.coef_al.items():
+            if l==0: continue
+            dB[~on_axis,0] += a_l*l/rho[~on_axis]**2*(((l+1)*z[~on_axis]**2 - l*r[~on_axis]**2)*r[~on_axis]**(l-1)*legendre(l-1)(z[~on_axis]/r[~on_axis]) - z[~on_axis]*r[~on_axis]**l*legendre(l)(z[~on_axis]/r[~on_axis])) # dBrho_drho
+            dB[~on_axis,1] += a_l*(l+1)*l/rho[~on_axis]*(r[~on_axis]**l*legendre(l)(z[~on_axis]/r[~on_axis]) - z[~on_axis]*r[~on_axis]**(l-1)*legendre(l-1)(z[~on_axis]/r[~on_axis]))                    # dBz_drho = dBrho_dz
+            dB[~on_center,2] += a_l*r[~on_center]**(l-1)*l*(l+1)*legendre(l-1)(z[~on_center]/r[~on_center])                                                    # dBz_dz
+
+        dB[on_axis,0] = 0
+        dB[on_axis,1] = 0
+        dB[on_center,2] = 0
+
+        return B, dB
+
+    def get_B_max(self, r):
+        # we ignore the r, sorry
+        # if largest a_l coefficient is positive we get to infinity at large z
+        if self.coef_al[max(self.coef_al.keys())] > 0:
+            return np.inf
+        # if all coefficients are negative we have the maximum at z=0
+        if np.all([a_l<0 for l, a_l in self.coef_al.items() if l!=0]):
+            return 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
+
+        # We get the roots of dB/dz
+        coef = [l*(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(1, max(self.coef_al.keys())+1))]
+        poly = np.poly1d(coef)
+        # The maximum is at any of the roots so evaluate the field at the roots and take the max of the b values.
+        # Only consider real roots
+        return np.max(self.evaluate_B(np.array([[0, np.real(root)] for root in poly.roots if np.imag(root) == 0])))
 
 
 def get_8_coil_flat_trap(z0, I0, B_background):
