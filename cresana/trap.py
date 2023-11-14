@@ -507,8 +507,10 @@ class ArbitraryTrap(Trap):
     def adiabatic_difference(self,r_f, z, pitch):
         return np.sin(pitch)**2*self.B_field(r_f(z), z)-self.B_field(r_f(0), 0.)
 
-    def guess_root(self, r_f, pitch):
+    def guess_root(self, r_f, pitch, positive_branch=True):
         z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
+        if not positive_branch:
+            z = -z
         diff = self.adiabatic_difference(r_f, z, pitch)
         positives = np.argwhere(diff>0) #np.argmax(diff>0)
 
@@ -524,7 +526,7 @@ class ArbitraryTrap(Trap):
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
 
         return z[ind-1], z[ind]
-        
+
     def min_trapping_angle(self, r):
         #might need to be checked again for potential walls
         #after the addition of r(z) due to the field lines
@@ -534,9 +536,9 @@ class ArbitraryTrap(Trap):
         return trapping_angle
 
     def _check_if_trapped(self, electron):
-        
+
         min_trapping_angle = self.min_trapping_angle(electron.r)
-        
+
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
 
@@ -575,7 +577,6 @@ class ArbitraryTrap(Trap):
         else:
             return self._stepwise_integral(z_val, integrand)
 
-
     def _stepwise_integral(self, z_val, integrand):
 
         integral = np.zeros_like(z_val)
@@ -598,27 +599,25 @@ class ArbitraryTrap(Trap):
 
         return integral
 
-    def find_zmax(self, electron):
-        zmax, _ = self._find_zmax_and_rf(electron)
+    def find_zmax(self, electron, positive_branch=True):
+        zmax, _ = self._find_zmax_and_rf(electron, positive_branch)
         return zmax
-    
-    def _find_zmax_and_rf(self, electron):
-        
+
+    def _find_zmax_and_rf(self, electron, positive_branch=True):
+
         """
         assuming the minimum is at z=0 and the profile is symmetric
         """
-        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
-        r_f = lambda z: r_f_unsigned(np.abs(z))
+        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, both_directions=True)
 
-        self._check_if_trapped(electron)
+        root_guess = self.guess_root(r_f_unsigned, electron.pitch, positive_branch=positive_branch)
 
-        root_guess = self.guess_root(r_f, electron.pitch)
-
-        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
+        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f_unsigned, z, electron.pitch),
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
                             rtol=self._root_rtol).root
-        return zmax, r_f
+
+        return zmax, r_f_unsigned
 
     def _solve_trajectory(self, electron):
 
