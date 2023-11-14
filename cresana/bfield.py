@@ -135,7 +135,7 @@ class Field(ABC):
 
         return B_mag, grad, curv
 
-    def gen_field_line(self, r0, z0, dt, zmax):
+    def gen_field_line(self, r0, z0, dt, zmax, direction_positive_z=False):
 
         pos_z = [z0]
         pos_r = [r0]
@@ -144,7 +144,10 @@ class Field(ABC):
             B_mag = np.sqrt(B[0]**2 + B[1]**2)
             dz = B[1]/B_mag*dt
             dr = B[0]/B_mag*dt
-            pos_z.append(pos_z[-1]+dz)
+            if direction_positive_z:
+                pos_z.append(pos_z[-1]+dz)
+            else:
+                pos_z.append(pos_z[-1]-dz)
             pos_r.append(pos_r[-1]+dr)
 
         line = make_interp_spline(pos_z, pos_r, bc_type='clamped')
