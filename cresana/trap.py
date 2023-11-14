@@ -608,7 +608,7 @@ class ArbitraryTrap(Trap):
     def _find_zmax_and_rf(self, electron, positive_branch=True):
 
         """
-        assuming the minimum is at z=0 and the profile is symmetric
+        assuming the electron starts at z=0
         """
         r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, both_directions=True)
 
@@ -623,10 +623,6 @@ class ArbitraryTrap(Trap):
 
     def _solve_trajectory(self, electron):
 
-        """
-        assuming the minimum is at z=0 and the profile is symmetric
-        """
-
         right, r_f = self._find_zmax_and_rf(electron, positive_branch=True)
         if self._symmetric_trap:
             left = 0
@@ -639,16 +635,23 @@ class ArbitraryTrap(Trap):
             self._T_buffer[electron] = float('inf')
 
         else:
-            print(left, right)
             B_f = self._get_B_f(r_f, z_min=left, z_max=right)
 
-            z_val = np.linspace(left, right, self._integration_steps)
+            z_val = np.linspace(0, right, self._integration_steps)
             integral = self._solve_integral(z_val, B_f)
-
-            v0 = get_relativistic_velocity(electron.E_kin)
             dist = integral * np.sqrt(B_f(right))
 
+            if not self._symmetric_trap:
+                z_val_neg = np.linspace(left, 0, self._integration_steps)
+                integral_neg = self._solve_integral(z_val_neg[::-1], B_f)[::-1]
+                dist_neg = integral_neg * np.sqrt(B_f(left))
+
+                z_val = np.concatenate([z_val_neg, z_val[1:]])
+                dist  = np.concatenate([ dist_neg,  dist[1:]])
+
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
+
+            v0 = get_relativistic_velocity(electron.E_kin)
 
             def z_f(t_in, v):
 
@@ -674,8 +677,9 @@ class ArbitraryTrap(Trap):
 
                 return res
 
-            self._T_buffer[electron] = 4*dist[-1]#/v0
-            #if self._symmetric_trap:
-            #   self._T_buffer[electron] *= 2
+            if self._symmetric_trap:
+                self._T_buffer[electron] = 4*dist[-1]
+            else:
+                self._T_buffer[electron] = 2*(dist[-1] - dist[0])
 
         return z_f, r_f
