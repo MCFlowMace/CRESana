@@ -661,19 +661,29 @@ class ArbitraryTrap(Trap):
                 t_end = dist[-1]/v
 
                 t_out = t_in.copy()
-                t_out %= 4*t_end
-                ind = t_out>2*t_end
-                #t_out[ind] = t_end[ind] - (t_out[ind]-t_end[ind])
-                t_out[ind] = 2*t_end[ind] - t_out[ind]
-                ind = np.abs(t_out)>t_end
-                sign = np.sign(t_out[ind])
-                #t_out[ind] = sign*t_end[ind]-(t_out[ind]-sign*t_end[ind])
-                t_out[ind] = 2*sign*t_end[ind]-t_out[ind]
+                if self._symmetric_trap:
+                    t_out %= 4*t_end
+                    ind = t_out>2*t_end
+                    t_out[ind] = 2*t_end[ind] - t_out[ind]
+                    ind = np.abs(t_out)>t_end
+                    sign = np.sign(t_out[ind])
+                    t_out[ind] = 2*sign*t_end[ind]-t_out[ind]
+                    
+                    negative = t_out<0
+                    res = np.empty_like(t_in)
+                    res[negative] = -interpolation(-t_out[negative]*v[negative])
+                    res[~negative] = interpolation(t_out[~negative]*v[~negative])
+                    
+                else:
+                    t_pos = t_end
+                    t_neg = -dist[0]/v
+                    t_out %= 2*(t_pos+t_neg) # wrap by one full phase
+                    ind = t_out > t_pos
+                    t_out[ind] = 2*t_pos[ind] - t_out[ind] # mirrow time at positive end
+                    ind = t_out < -t_neg
+                    t_out[ind] = -2*t_neg[ind] - t_out[ind] # mirrow time at negative end
 
-                negative = t_out<0
-                res = np.empty_like(t_in)
-                res[negative] = -interpolation(-t_out[negative]*v[negative])
-                res[~negative] = interpolation(t_out[~negative]*v[~negative])
+                    res = interpolation(t_out*v)
 
                 return res
 
