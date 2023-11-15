@@ -18,7 +18,7 @@ from .physicsconstants import speed_of_light
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False):
+    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False, sampling_configuration={}):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
@@ -30,6 +30,7 @@ class CRESanaModel(ABC):
         self.f_min = self.f_LO-self.sr/2
         self.far_field_distance = 2*speed_of_light/self.f_min
         self.terminate_invalid_volume = True
+        self._sampling_configuration = sampling_configuration
         self.init_trap()
         self.init_array()
 
@@ -68,6 +69,9 @@ class CRESanaModel(ABC):
     @n_samples.setter
     def n_samples(self, n_samples):
         self._n_samples = n_samples
+
+    def set_sampling_configuration(self, **kwargs):
+        self._sampling_configuration = kwargs
 
     def __call__(self, E_kin, pitch, r, t0, tau, phi_r=0., z0=0.):
         print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}, phi_r={phi_r}, z0={z0}')
@@ -109,7 +113,7 @@ class CRESanaModel(ABC):
 
     def simulate(self, electron):
         sim = self._get_electron_simulator(electron)
-        simulation = Simulation(self.array, self.sr, self.f_LO)
+        simulation = Simulation(self.array, self.sr, self.f_LO, **self._sampling_configuration)
         samples = simulation.get_samples(self.n_samples, sim)*sqrt(self.power_efficiency)
         return samples, sim.electron_sim
     
