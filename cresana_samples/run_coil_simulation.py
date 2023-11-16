@@ -6,6 +6,7 @@ Date: March 16, 2023
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 from cresana import ArbitraryTrap, MultiCoilField, Coil, Electron
 
@@ -30,12 +31,23 @@ bfield.plot_field_2d(2.5, 10., 100, 200)
 trap = ArbitraryTrap(bfield, root_guess_max=z0, root_guess_steps=1000, integration_steps=100,
                                 field_line_step_size=0.001)
 
+
+print('Bmax', bfield.get_B_max(0.))
+print('Bmin', bfield.get_grad_mag(np.array([[0., 0., 0.]])))
+print('zmax', trap.find_zmax(electron))
+
 #solves the integration for the electron, the axial frequency is cached
+start = time.time()
 simulation = trap.simulate(electron)
+end = time.time()
+print('sim takes [s]', end-start)
 
 #query cached frequency
 print('Axial frequency', trap.get_f(electron))
+start = time.time()
 print('zmax', trap.find_zmax(electron))
+end = time.time()
+print('zmax takes [s]', end-start)
 
 tmax = 40.e-6
 N = 2000

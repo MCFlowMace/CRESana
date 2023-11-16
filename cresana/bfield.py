@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, make_interp_spline
 from scipy.special import ellipk, ellipe, ellipkm1, legendre
+from scipy.optimize import root_scalar
 from warnings import warn
 import matplotlib.pyplot as plt
 
@@ -368,13 +369,22 @@ class MultiCoilField(Field):
         if self._is_potential_well():
             return self.background_field
         else:
-            B_max = 0
-            for c in self.coils:
-                b = self.evaluate_B(np.array([r, c.z0]))
-                b_mag = np.sqrt(b[...,0]**2 + b[...,1]**2)
-                if b_mag>B_max:
-                    B_max = b_mag
-            return B_max
+            # maximum is somewhere between the outer most coils
+            # fist make a guess by scanning the full range
+            zmin = np.min([c.z0 for c in self.coils])
+            zmax = np.max([c.z0 for c in self.coils])
+            # avoid that the maximum is just at the boundary of the scanning range and extent the scan slightly left and right
+            z = np.linspace(zmin-0.1*(zmax-zmin), zmax+0.1*(zmax-zmin), 100)
+            Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
+            idx = np.argmax(Bz)
+
+            # then fine tune by getting dBz/dz = 0 at the position of the maximum
+            max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
+                                  method='secant', x0=z[idx-1], x1=z[idx+1]).root
+
+            # evaluate the field at the maximum
+            B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
+            return np.linalg.norm(B_max)
 
     def evaluate_B(self, pos, derivatives=False):
 
