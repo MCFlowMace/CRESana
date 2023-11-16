@@ -143,7 +143,7 @@ class Field(ABC):
         pos_z = [z0]
         pos_r = [r0]
         while sign*pos_z[-1]<zmax:
-            B = self.evaluat_B(np.array([pos_r[-1], pos_z[-1]]))
+            B = self.evaluate_B(np.array([pos_r[-1], pos_z[-1]]))
             B_mag = np.sqrt(B[0]**2 + B[1]**2)
             dz = sign*B[1]/B_mag*dt
             dr = sign*B[0]/B_mag*dt

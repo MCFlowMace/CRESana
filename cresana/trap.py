@@ -610,24 +610,32 @@ class ArbitraryTrap(Trap):
         """
         assuming the electron starts at z=0
         """
-        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, both_directions=True)
+        r_f = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, positive_branch=positive_branch)
 
-        root_guess = self.guess_root(r_f_unsigned, electron.pitch, positive_branch=positive_branch)
+        root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
 
-        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f_unsigned, z, electron.pitch),
+        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
                             rtol=self._root_rtol).root
 
-        return zmax, r_f_unsigned
+        return zmax, r_f
 
     def _solve_trajectory(self, electron):
 
-        right, r_f = self._find_zmax_and_rf(electron, positive_branch=True)
+        right, r_f_right = self._find_zmax_and_rf(electron, positive_branch=True)
         if self._symmetric_trap:
             left = 0
+            r_f = lambda z: r_f_right(np.abs(z))
         else:
-            left, _ = self._find_zmax_and_rf(electron, positive_branch=False)
+            left, r_f_left = self._find_zmax_and_rf(electron, positive_branch=False)
+
+            def r_f(z):
+                r = np.empty_like(z)
+                neg = z<0
+                r[neg] = r_f_left(z[neg])
+                r[~neg] = r_f_right(z[~neg])
+                return r
 
         if right==0:
 
