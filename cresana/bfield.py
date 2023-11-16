@@ -326,10 +326,15 @@ class Field(ABC):
         z = np.linspace(-zmax, zmax, nz)
 
         for r in r_vals:
-            field_line = self.gen_field_line(r, z0, dz, zmax)
+            field_line_pos = self.gen_field_line(r, z0, dz, zmax, positive_branch=True)
+            field_line_neg = self.gen_field_line(r, z0, dz, zmax, positive_branch=False)
 
+            neg = z<0
+            r_ = np.empty_like(z)
+            r_[neg] = field_line_neg(z[neg])
+            r_[~neg] = field_line_pos(z[~neg])
 
-            r_ = field_line(np.abs(z))
+           # r_ = field_line(np.abs(z))
 
             plt.plot(z,r_, c=color)
 
