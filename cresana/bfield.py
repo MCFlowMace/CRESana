@@ -366,26 +366,32 @@ class MultiCoilField(Field):
         # the trap is a potential well if all coils have negative current
         return n==len(self.coils)
 
-    def get_B_max(self, r):
+    def get_B_max(self, r, zmin=None, zmax=None):
 
         if self._is_potential_well():
             return self.background_field
         else:
             # maximum is somewhere between the outer most coils
             # fist make a guess by scanning the full range
-            zmin = np.min([c.z0 for c in self.coils])
-            zmax = np.max([c.z0 for c in self.coils])
+            if zmin is None:
+                zmin = np.min([c.z0 for c in self.coils])
+            if zmax is None:
+                zmax = np.max([c.z0 for c in self.coils])
             # avoid that the maximum is just at the boundary of the scanning range and extent the scan slightly left and right
             z = np.linspace(zmin-0.1*(zmax-zmin), zmax+0.1*(zmax-zmin), 100)
             Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
             idx = np.argmax(Bz)
 
-            # then fine tune by getting dBz/dz = 0 at the position of the maximum
-            max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
+            if idx>0 and idx<99:
+                # then fine tune by getting dBz/dz = 0 at the position of the maximum
+                max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
                                   method='secant', x0=z[idx-1], x1=z[idx+1]).root
-
+            else:
+                max_pos = z[idx]
+                
             # evaluate the field at the maximum
             B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
+            print('z max', max_pos, 'B max', B_max)
             return np.linalg.norm(B_max)
 
     def evaluate_B(self, pos, derivatives=False):
