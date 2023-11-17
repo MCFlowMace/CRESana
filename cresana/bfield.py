@@ -101,8 +101,8 @@ class Field(ABC):
         self.B_f = None
 
     @abstractmethod
-    def get_B_max(self, r):
-        """ Return maximal magnetic field for a given radius """
+    def get_B_max(self, r, zmin=None, zmax=None):
+        """ Return maximal magnetic field for a given radius between zmin and zmax"""
         pass
 
     @abstractmethod
@@ -388,7 +388,7 @@ class MultiCoilField(Field):
                                   method='secant', x0=z[idx-1], x1=z[idx+1]).root
             else:
                 max_pos = z[idx]
-                
+
             # evaluate the field at the maximum
             B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
             print('z max', max_pos, 'B max', B_max)
@@ -497,7 +497,7 @@ class AnalyticRotationSymmetricField(Field):
 
         return B, dB
 
-    def get_B_max(self, r):
+    def get_B_max(self, r, zmin=None, zmax=None):
         # we ignore the r, sorry
         # if largest a_l coefficient is positive we get to infinity at large z
         if self.coef_al[max(self.coef_al.keys())] > 0:
