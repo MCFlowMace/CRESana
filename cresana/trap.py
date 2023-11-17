@@ -530,10 +530,13 @@ class ArbitraryTrap(Trap):
         return z[ind-1], z[ind]
 
     def min_trapping_angle(self, r):
-        #might need to be checked again for potential walls
-        #after the addition of r(z) due to the field lines
-        B_max = self._b_field.get_B_max(r)
         B_min = self.B_field(r, 0)
+        B_max_left = self._b_field.get_B_max(r, zmax=0.)
+        if self._symmetric_trap:
+            B_max = B_max_left
+        else:
+            B_max_right = self._b_field.get_B_max(r, zmin=0.)
+            B_max = min(B_max_left, B_max_right)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
         return trapping_angle
 
@@ -611,6 +614,8 @@ class ArbitraryTrap(Trap):
         assuming the electron starts at z=0
         """
         r_f = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, positive_branch=positive_branch)
+
+        self._check_if_trapped(electron)
 
         root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
 
