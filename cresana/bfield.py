@@ -101,8 +101,8 @@ class Field(ABC):
         self.B_f = None
 
     @abstractmethod
-    def get_B_max(self, r):
-        """ Return maximal magnetic field for a given radius """
+    def get_B_max(self, r, zmin=None, zmax=None):
+        """ Return maximal magnetic field for a given radius between zmin and zmax"""
         pass
 
     @abstractmethod
@@ -136,17 +136,23 @@ class Field(ABC):
 
         return B_mag, grad, curv
 
-    def gen_field_line(self, r0, z0, dt, zmax):
+    def gen_field_line(self, r0, z0, dt, zmax, positive_branch=True):
+
+        sign = 1 if positive_branch else -1
 
         pos_z = [z0]
         pos_r = [r0]
-        while pos_z[-1]<zmax:
+        while sign*pos_z[-1]<zmax:
             B = self.evaluate_B(np.array([pos_r[-1], pos_z[-1]]))
             B_mag = np.sqrt(B[0]**2 + B[1]**2)
-            dz = B[1]/B_mag*dt
-            dr = B[0]/B_mag*dt
+            dz = sign*B[1]/B_mag*dt
+            dr = sign*B[0]/B_mag*dt
             pos_z.append(pos_z[-1]+dz)
             pos_r.append(pos_r[-1]+dr)
+
+        if not positive_branch:
+            pos_z = pos_z[::-1]
+            pos_r = pos_r[::-1]
 
         line = make_interp_spline(pos_z, pos_r, bc_type='clamped')
 
@@ -320,10 +326,15 @@ class Field(ABC):
         z = np.linspace(-zmax, zmax, nz)
 
         for r in r_vals:
-            field_line = self.gen_field_line(r, z0, dz, zmax)
+            field_line_pos = self.gen_field_line(r, z0, dz, zmax, positive_branch=True)
+            field_line_neg = self.gen_field_line(r, z0, dz, zmax, positive_branch=False)
 
+            neg = z<0
+            r_ = np.empty_like(z)
+            r_[neg] = field_line_neg(z[neg])
+            r_[~neg] = field_line_pos(z[~neg])
 
-            r_ = field_line(np.abs(z))
+           # r_ = field_line(np.abs(z))
 
             plt.plot(z,r_, c=color)
 
@@ -355,26 +366,32 @@ class MultiCoilField(Field):
         # the trap is a potential well if all coils have negative current
         return n==len(self.coils)
 
-    def get_B_max(self, r):
+    def get_B_max(self, r, zmin=None, zmax=None):
 
         if self._is_potential_well():
             return self.background_field
         else:
             # maximum is somewhere between the outer most coils
             # fist make a guess by scanning the full range
-            zmin = np.min([c.z0 for c in self.coils])
-            zmax = np.max([c.z0 for c in self.coils])
+            if zmin is None:
+                zmin = np.min([c.z0 for c in self.coils])
+            if zmax is None:
+                zmax = np.max([c.z0 for c in self.coils])
             # avoid that the maximum is just at the boundary of the scanning range and extent the scan slightly left and right
             z = np.linspace(zmin-0.1*(zmax-zmin), zmax+0.1*(zmax-zmin), 100)
             Bz = np.linalg.norm(self.evaluate_B(np.array([r*np.ones_like(z),z]).T), axis=1)
             idx = np.argmax(Bz)
 
-            # then fine tune by getting dBz/dz = 0 at the position of the maximum
-            max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
+            if idx>0 and idx<99:
+                # then fine tune by getting dBz/dz = 0 at the position of the maximum
+                max_pos = root_scalar(lambda z: self.evaluate_B(np.array([[r, z]]), derivatives=True)[1][0,2],
                                   method='secant', x0=z[idx-1], x1=z[idx+1]).root
+            else:
+                max_pos = z[idx]
 
             # evaluate the field at the maximum
             B_max = self.evaluate_B(np.array([[r, max_pos]]))[0]
+            print('z max', max_pos, 'B max', B_max)
             return np.linalg.norm(B_max)
 
     def evaluate_B(self, pos, derivatives=False):
@@ -480,21 +497,36 @@ class AnalyticRotationSymmetricField(Field):
 
         return B, dB
 
-    def get_B_max(self, r):
-        # we ignore the r, sorry
-        # if largest a_l coefficient is positive we get to infinity at large z
-        if self.coef_al[max(self.coef_al.keys())] > 0:
-            return np.inf
-        # if all coefficients are negative we have the maximum at z=0
-        if np.all([a_l<0 for l, a_l in self.coef_al.items() if l!=0]):
-            return 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
+    def get_B_max(self, r, zmin=None, zmax=None):
+        # we ignore the r, and work with the B(z,r=0) polynomial
+        p = np.poly1d([(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(0, max(self.coef_al.keys())+1))])
 
-        # We get the roots of dB/dz
-        coef = [l*(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(1, max(self.coef_al.keys())+1))]
-        poly = np.poly1d(coef)
-        # The maximum is at any of the roots so evaluate the field at the roots and take the max of the b values.
-        # Only consider real roots
-        return np.max(self.evaluate_B(np.array([[0, np.real(root)] for root in poly.roots if np.imag(root) == 0])))
+        # Strategy: global maximum of a polynomial is given by checking all local extrema and boundary values itself
+        Bmax = -np.inf
+
+        # first check boundaries
+        if zmin is None:
+            # treate like zmin=-inf, in that case the largest power wins
+            if p.coefficients[0] < 0 and p.order % 2 == 1: Bmax = np.inf
+            if p.coefficients[0] > 0 and p.order % 2 == 0: Bmax = np.inf
+        else:
+            Bmax = max([Bmax, p(zmin)])
+
+        if zmax is None:
+            # treate like zmax=inf, in that case the largest power wins
+            if p.coefficients[0] > 0: Bmax = np.inf
+        else:
+            Bmax = max([Bmax, p(zmax)])
+
+        # now test all local extrema within the range
+        for root in p.deriv().roots:
+            # Only consider real roots
+            if np.imag(root) != 0 : continue
+            if zmin is not None and root < zmin: continue
+            if zmax is not None and root > zmax: continue
+            Bmax = max([Bmax, p(root)])
+
+        return Bmax
 
 
 def get_8_coil_flat_trap(z0, I0, B_background):

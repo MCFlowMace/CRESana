@@ -455,7 +455,8 @@ class ArbitraryTrap(Trap):
                     b_interpolation_order=3,
                     fast_integral=False,
                     debug=False,
-                    energy_loss=True):
+                    energy_loss=True,
+                    symmetric_trap=True):
         Trap.__init__(self, add_gradB, add_curvB)
         self._b_field = b_field
         self._integration_steps = integration_steps
@@ -464,6 +465,7 @@ class ArbitraryTrap(Trap):
         self._root_guess_steps = root_guess_steps
         self._field_line_step_size = field_line_step_size
         self._energy_loss = energy_loss
+        self._symmetric_trap = symmetric_trap
         self._T_buffer = {}
         self._b_interpolation_steps = b_interpolation_steps
         self._b_interpolation_order = b_interpolation_order
@@ -507,8 +509,10 @@ class ArbitraryTrap(Trap):
     def adiabatic_difference(self,r_f, z, pitch):
         return np.sin(pitch)**2*self.B_field(r_f(z), z)-self.B_field(r_f(0), 0.)
 
-    def guess_root(self, r_f, pitch):
+    def guess_root(self, r_f, pitch, positive_branch=True):
         z = np.linspace(0, self._root_guess_max, self._root_guess_steps)
+        if not positive_branch:
+            z = -z
         diff = self.adiabatic_difference(r_f, z, pitch)
         positives = np.argwhere(diff>0) #np.argmax(diff>0)
 
@@ -524,26 +528,29 @@ class ArbitraryTrap(Trap):
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
 
         return z[ind-1], z[ind]
-        
+
     def min_trapping_angle(self, r):
-        #might need to be checked again for potential walls
-        #after the addition of r(z) due to the field lines
-        B_max = self._b_field.get_B_max(r)
         B_min = self.B_field(r, 0)
+        B_max_left = self._b_field.get_B_max(r, zmax=0.)
+        if self._symmetric_trap:
+            B_max = B_max_left
+        else:
+            B_max_right = self._b_field.get_B_max(r, zmin=0.)
+            B_max = min(B_max_left, B_max_right)
         trapping_angle = np.arcsin(np.sqrt(B_min/B_max))
         return trapping_angle
 
     def _check_if_trapped(self, electron):
-        
+
         min_trapping_angle = self.min_trapping_angle(electron.r)
-        
+
         if min_trapping_angle>electron.pitch:
             raise RuntimeError(f'Electron is not trapped! Minimum trapping angle is {min_trapping_angle/np.pi*180}, electron pitch angle is {electron.pitch/np.pi*180}')
 
-    def _get_B_f(self, r_f, z_max):
+    def _get_B_f(self, r_f, z_max, z_min=0):
 
         if self._b_interpolation_steps is not None:
-            z = np.linspace(0, z_max, self._b_interpolation_steps)
+            z = np.linspace(z_min, z_max, self._b_interpolation_steps)
             B = self.B_field(r_f(z), z)
             B_f = make_interp_spline(z, B, k=self._b_interpolation_order)
 
@@ -575,7 +582,6 @@ class ArbitraryTrap(Trap):
         else:
             return self._stepwise_integral(z_val, integrand)
 
-
     def _stepwise_integral(self, z_val, integrand):
 
         integral = np.zeros_like(z_val)
@@ -598,35 +604,43 @@ class ArbitraryTrap(Trap):
 
         return integral
 
-    def find_zmax(self, electron):
-        zmax, _ = self._find_zmax_and_rf(electron)
+    def find_zmax(self, electron, positive_branch=True):
+        zmax, _ = self._find_zmax_and_rf(electron, positive_branch)
         return zmax
-    
-    def _find_zmax_and_rf(self, electron):
-        
+
+    def _find_zmax_and_rf(self, electron, positive_branch=True):
+
         """
-        assuming the minimum is at z=0 and the profile is symmetric
+        assuming the electron starts at z=0
         """
-        r_f_unsigned = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max)
-        r_f = lambda z: r_f_unsigned(np.abs(z))
+        r_f = self._b_field.gen_field_line(electron.r, 0., self._field_line_step_size, self._root_guess_max, positive_branch=positive_branch)
 
         self._check_if_trapped(electron)
 
-        root_guess = self.guess_root(r_f, electron.pitch)
+        root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
 
         zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
                             rtol=self._root_rtol).root
+
         return zmax, r_f
 
     def _solve_trajectory(self, electron):
 
-        """
-        assuming the minimum is at z=0 and the profile is symmetric
-        """
+        right, r_f_right = self._find_zmax_and_rf(electron, positive_branch=True)
+        if self._symmetric_trap:
+            left = 0
+            r_f = lambda z: r_f_right(np.abs(z))
+        else:
+            left, r_f_left = self._find_zmax_and_rf(electron, positive_branch=False)
 
-        right, r_f = self._find_zmax_and_rf(electron)
+            def r_f(z):
+                r = np.empty_like(z)
+                neg = z<0
+                r[neg] = r_f_left(z[neg])
+                r[~neg] = r_f_right(z[~neg])
+                return r
 
         if right==0:
 
@@ -634,16 +648,23 @@ class ArbitraryTrap(Trap):
             self._T_buffer[electron] = float('inf')
 
         else:
-
-            B_f = self._get_B_f(r_f, right)
+            B_f = self._get_B_f(r_f, z_min=left, z_max=right)
 
             z_val = np.linspace(0, right, self._integration_steps)
             integral = self._solve_integral(z_val, B_f)
-
-            v0 = get_relativistic_velocity(electron.E_kin)
             dist = integral * np.sqrt(B_f(right))
 
+            if not self._symmetric_trap:
+                z_val_neg = np.linspace(left, 0, self._integration_steps)
+                integral_neg = self._solve_integral(z_val_neg[::-1], B_f)[::-1]
+                dist_neg = integral_neg * np.sqrt(B_f(left))
+
+                z_val = np.concatenate([z_val_neg, z_val[1:]])
+                dist  = np.concatenate([ dist_neg,  dist[1:]])
+
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
+
+            v0 = get_relativistic_velocity(electron.E_kin)
 
             def z_f(t_in, v):
 
@@ -653,22 +674,35 @@ class ArbitraryTrap(Trap):
                 t_end = dist[-1]/v
 
                 t_out = t_in.copy()
-                t_out %= 4*t_end
-                ind = t_out>2*t_end
-                #t_out[ind] = t_end[ind] - (t_out[ind]-t_end[ind])
-                t_out[ind] = 2*t_end[ind] - t_out[ind]
-                ind = np.abs(t_out)>t_end
-                sign = np.sign(t_out[ind])
-                #t_out[ind] = sign*t_end[ind]-(t_out[ind]-sign*t_end[ind])
-                t_out[ind] = 2*sign*t_end[ind]-t_out[ind]
+                if self._symmetric_trap:
+                    t_out %= 4*t_end
+                    ind = t_out>2*t_end
+                    t_out[ind] = 2*t_end[ind] - t_out[ind]
+                    ind = np.abs(t_out)>t_end
+                    sign = np.sign(t_out[ind])
+                    t_out[ind] = 2*sign*t_end[ind]-t_out[ind]
+                    
+                    negative = t_out<0
+                    res = np.empty_like(t_in)
+                    res[negative] = -interpolation(-t_out[negative]*v[negative])
+                    res[~negative] = interpolation(t_out[~negative]*v[~negative])
+                    
+                else:
+                    t_pos = t_end
+                    t_neg = -dist[0]/v
+                    t_out %= 2*(t_pos+t_neg) # wrap by one full phase
+                    ind = t_out > t_pos
+                    t_out[ind] = 2*t_pos[ind] - t_out[ind] # mirrow time at positive end
+                    ind = t_out < -t_neg
+                    t_out[ind] = -2*t_neg[ind] - t_out[ind] # mirrow time at negative end
 
-                negative = t_out<0
-                res = np.empty_like(t_in)
-                res[negative] = -interpolation(-t_out[negative]*v[negative])
-                res[~negative] = interpolation(t_out[~negative]*v[~negative])
+                    res = interpolation(t_out*v)
 
                 return res
 
-            self._T_buffer[electron] = 4*dist[-1]#/v0
+            if self._symmetric_trap:
+                self._T_buffer[electron] = 4*dist[-1]
+            else:
+                self._T_buffer[electron] = 2*(dist[-1] - dist[0])
 
         return z_f, r_f
