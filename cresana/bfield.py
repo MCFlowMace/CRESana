@@ -135,7 +135,7 @@ class Field(ABC):
         curv[~B0] = 1/B_mag[~B0]**3*(Bz[~B0]*(Br[~B0]*dBrho_rho[~B0] + Bz[~B0]*dBrho_z[~B0]) - Br[~B0]*(Bz[~B0]*dBz_rho[~B0] + Bz[~B0]*dBz_rho[~B0]))
 
         return B_mag, grad, curv
-    
+
     def gen_field_line(self, r0, z0, dt, zmax, positive_branch=True):
 
         sign = 1 if positive_branch else -1
@@ -498,20 +498,35 @@ class AnalyticRotationSymmetricField(Field):
         return B, dB
 
     def get_B_max(self, r, zmin=None, zmax=None):
-        # we ignore the r, sorry
-        # if largest a_l coefficient is positive we get to infinity at large z
-        if self.coef_al[max(self.coef_al.keys())] > 0:
-            return np.inf
-        # if all coefficients are negative we have the maximum at z=0
-        if np.all([a_l<0 for l, a_l in self.coef_al.items() if l!=0]):
-            return 0 if 0 not in self.coef_al.keys() else self.coef_al[0]
+        # we ignore the r, and work with the B(z,r=0) polynomial
+        p = np.poly1d([(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(0, max(self.coef_al.keys())+1))])
 
-        # We get the roots of dB/dz
-        coef = [l*(l+1)*self.coef_al[l] if l in self.coef_al.keys() else 0 for l in reversed(range(1, max(self.coef_al.keys())+1))]
-        poly = np.poly1d(coef)
-        # The maximum is at any of the roots so evaluate the field at the roots and take the max of the b values.
-        # Only consider real roots
-        return np.max(self.evaluate_B(np.array([[0, np.real(root)] for root in poly.roots if np.imag(root) == 0])))
+        # Strategy: global maximum of a polynomial is given by checking all local extrema and boundary values itself
+        Bmax = -np.inf
+
+        # first check boundaries
+        if zmin is None:
+            # treate like zmin=-inf, in that case the largest power wins
+            if p.coefficients[0] < 0 and p.order % 2 == 1: Bmax = np.inf
+            if p.coefficients[0] > 0 and p.order % 2 == 0: Bmax = np.inf
+        else:
+            Bmax = max([Bmax, p(zmin)])
+
+        if zmax is None:
+            # treate like zmax=inf, in that case the largest power wins
+            if p.coefficients[0] > 0: Bmax = np.inf
+        else:
+            Bmax = max([Bmax, p(zmax)])
+
+        # now test all local extrema within the range
+        for root in p.deriv().roots:
+            # Only consider real roots
+            if np.imag(root) != 0 : continue
+            if zmin is not None and root < zmin: continue
+            if zmax is not None and root > zmax: continue
+            Bmax = max([Bmax, p(root)])
+
+        return Bmax
 
 
 def get_8_coil_flat_trap(z0, I0, B_background):
