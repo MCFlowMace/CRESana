@@ -396,25 +396,70 @@ class MultiCoilField(Field):
 
     def evaluate_B(self, pos, derivatives=False):
 
-        if not derivatives:
+        z_coil = np.array([c.z0 for c in self.coils])
+        r_coil = np.array([c.radius for c in self.coils])
+        I_coil = np.array([c.current*c.turns for c in self.coils])
 
-            B = np.zeros_like(pos)
+        rho_eval = pos[...,0]
+        z_eval = pos[...,1]
 
-            for c in self.coils:
-                B += c.evaluate_B(pos)
+        rho, a = np.meshgrid(rho_eval.flatten(), r_coil.flatten())
+        zE, zC = np.meshgrid(z_eval.flatten(), z_coil.flatten())
+        z = zE - zC
 
-            B[...,1] += self.background_field
+        C = mu0/np.pi
+        r = np.sqrt(rho**2 + z**2)
+        alpha = np.sqrt(a**2 + r**2 - 2*a*rho)
+        beta  = np.sqrt(a**2 + r**2 + 2*a*rho)
+        k2 = 1 - alpha**2/beta**2
+        E_k2 = ellipe(k2)
+        K_k2 = np.empty_like(k2)
+        greater = np.abs(k2-1)>0.1
+        K_k2[greater] = ellipk(k2[greater])
+        K_k2[~greater] = ellipkm1(1-k2[~greater])
 
-            return B
+        on_axis = rho==0
+
+        Brho = np.zeros_like(z)
+        Brho[~on_axis] = (C*rho[~on_axis]*z[~on_axis]/(2*alpha[~on_axis]**2*beta[~on_axis]*rho[~on_axis]**2)
+                        *((a[~on_axis]**2 + r[~on_axis]**2)*E_k2[~on_axis]-alpha[~on_axis]**2*K_k2[~on_axis]))
+
+        Bz = C/(2*alpha**2*beta)*((a**2 - r**2)*E_k2 + alpha**2*K_k2)
+
         B = np.zeros_like(pos)
-        dB = np.zeros(pos.shape[:-1]+(3,))
 
-        for c in self.coils:
-            B_, dB_ = c.evaluate_B(pos, derivatives=True)
-            B += B_
-            dB += dB_
-
+        B[...,0] = np.reshape(np.dot(Brho.T, I_coil), np.shape(rho_eval))
+        B[...,1] = np.reshape(np.dot(Bz.T, I_coil), np.shape(rho_eval))
         B[...,1] += self.background_field
+
+        if not derivatives:
+            return B
+
+        dBrho_drho = np.zeros_like(z)
+        dBrho_drho[~on_axis] = (-C*z[~on_axis]/(2*rho[~on_axis]**2*alpha[~on_axis]**4*beta[~on_axis]**3)
+                               *((a[~on_axis]**6 + r[~on_axis]**4*(2*rho[~on_axis]**2+z[~on_axis]**2)
+                                  + a[~on_axis]**4*(3*z[~on_axis]**2 - 8*rho[~on_axis]**2)
+                                  + a[~on_axis]**2*(5*rho[~on_axis]**4 - 4*rho[~on_axis]**2*z[~on_axis]**2
+                                          + 3*z[~on_axis]**4))*E_k2[~on_axis]
+                                 - alpha[~on_axis]**2*(a[~on_axis]**4 - 3*a[~on_axis]**2*rho[~on_axis]**2 + 2*rho[~on_axis]**4
+                                                       + (2*a[~on_axis]**2 + 3*rho[~on_axis]**2)*z[~on_axis]**2
+                                                       + z[~on_axis]**4)*K_k2[~on_axis]))
+
+        dBrho_dz = np.zeros_like(z)
+        dBrho_dz[~on_axis] = (C/(2*rho[~on_axis]*alpha[~on_axis]**4*beta[~on_axis]**3)
+                               *(((a[~on_axis]**2 + rho[~on_axis]**2)*(z[~on_axis]**4 + (a[~on_axis]**2-rho[~on_axis]**2)**2)
+                                  +2*z[~on_axis]**2*(a[~on_axis]**4 - 6*a[~on_axis]**2*rho[~on_axis]**2
+                                                     + rho[~on_axis]**4))*E_k2[~on_axis]
+                                 -alpha[~on_axis]**2*((a[~on_axis]**2 - rho[~on_axis]**2)**2
+                                                      + (a[~on_axis]**2 + rho[~on_axis]**2)*z[~on_axis]**2)*K_k2[~on_axis]))
+
+        dBz_dz = C*z/(2*alpha**4*beta**3)*((6*a**2*(rho**2 - z**2) - 7*a**4 + (rho**2 + z**2)**2)*E_k2
+                                          + alpha**2*(a**2 - rho**2 - z**2)*K_k2)
+
+        dB = np.empty(pos.shape[:-1]+(3,))
+        dBrho_rho = dB[...,0] = np.reshape(np.dot(dBrho_drho.T, I_coil), np.shape(rho_eval))
+        dBrho_z = dB[...,1] = np.reshape(np.dot(dBrho_dz.T, I_coil), np.shape(rho_eval))
+        dBz_z = dB[...,2] = np.reshape(np.dot(dBz_dz.T, I_coil), np.shape(rho_eval))
 
         return B, dB
 
