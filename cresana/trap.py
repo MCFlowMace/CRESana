@@ -619,12 +619,15 @@ class ArbitraryTrap(Trap):
 
         root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
 
-        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
+        result = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
-                            rtol=self._root_rtol).root
+                            rtol=self._root_rtol)
+        
+        if not result.converged:
+            raise RuntimeError("Could not determine z_max because root finding didn't converge. Use better resolution for guessing the root (root_guess_max too high and/or root_guess_steps too small)")
 
-        return zmax, r_f
+        return result.root, r_f
 
     def _solve_trajectory(self, electron):
 
