@@ -18,13 +18,14 @@ from .physicsconstants import speed_of_light
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False, sampling_configuration={}):
+    def __init__(self, sr, f_LO, pitch_limit=None, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False, sampling_configuration={}):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
         self.flattened = flattened
         self.return_electron_simulation = return_electron_simulation
         self._n_samples = None
+        self._pitch_limit = pitch_limit
         self.name = name
         self.power_efficiency = power_efficiency
         self.f_min = self.f_LO-self.sr/2
@@ -75,6 +76,13 @@ class CRESanaModel(ABC):
 
     def __call__(self, E_kin, pitch, r, t0, tau, phi_r=0., z0=0.):
         print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}, phi_r={phi_r}, z0={z0}')
+
+        if self._pitch_limit is not None:
+            if abs(90.-pitch)<self._pitch_limit:
+                print(f'Ran into pitch limit with pitch={pitch} setting to pitch=90 instead')
+                pitch = 90.
+
+
         electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0, phi=phi_r)
         data, electron_sim = self._simulate(electron)
 
