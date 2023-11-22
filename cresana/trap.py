@@ -526,8 +526,15 @@ class ArbitraryTrap(Trap):
 
        # if ind==len(z)-1:
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
+        z_lower = z[ind-1]
+        z_upper = z[ind]
 
-        return z[ind-1], z[ind]
+        equals_zero = np.argwhere(diff==0.)
+        if len(equals_zero>0):
+            ind = equals_zero[0][0]
+            z_lower = z_upper = z[ind]
+
+        return z_lower, z_upper
 
     def min_trapping_angle(self, r):
         B_min = self.B_field(r, 0)
@@ -618,6 +625,9 @@ class ArbitraryTrap(Trap):
         self._check_if_trapped(electron)
 
         root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
+
+        if root_guess[0]==root_guess[1]:
+            return root_guess[0], r_f
 
         result = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
                             method='secant', x0=root_guess[0],
