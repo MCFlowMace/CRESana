@@ -8,7 +8,7 @@ Date: May 17, 2023
 """
 
 from abc import ABC, abstractmethod
-from math import sqrt
+from math import sqrt, pi
 import dill as pickle
 
 from .electronsim import Electron, AnalyticSimulation
@@ -107,6 +107,15 @@ class CRESanaModel(ABC):
         if electron.r>self.r_max:
             msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}'
             msg += '\n(Either it is too close to coils for the adiabatic assumption or it is not in the antenna far-field. Both assumption required in CRESana)'
+            if self.terminate_invalid_volume:
+                raise ValueError(msg)
+
+        pitch = electron.pitch/pi*180    
+        pitch_max = 180-self.pitch_min
+        pitch_min = self.pitch_min
+
+        if pitch<pitch_min or pitch>pitch_max:
+            msg = f'Electron with pitch={pitch} is outside valid pitch range with pitch_min={pitch_min}'
             if self.terminate_invalid_volume:
                 raise ValueError(msg)
 
