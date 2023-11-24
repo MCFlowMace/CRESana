@@ -638,6 +638,25 @@ class ArbitraryTrap(Trap):
             raise RuntimeError("Could not determine z_max because root finding didn't converge. Use better resolution for guessing the root (root_guess_max too high and/or root_guess_steps too small)")
 
         return result.root, r_f
+    
+    def _ensure_monotony(self, dist, z):
+        #removes pairs of dist, z where dist is not monotonically increasing
+        #this should solve a numeric issue
+        ind = np.empty_like(dist, dtype=np.bool_)
+        val = dist[0]
+        for i in range(1, len(dist)):
+            if dist[i]>val:
+                val = dist[i]
+                ind[i] = 1
+            else:
+                ind[i] = 0
+
+        removed = np.sum(~ind)
+
+        if removed>0:
+            print(f'Warning: had to remove {removed} elements from the integration results to meet monotonity criterion!!!')
+
+        return dist[ind], z[ind]
 
     def _solve_trajectory(self, electron):
 
@@ -675,6 +694,7 @@ class ArbitraryTrap(Trap):
                 z_val = np.concatenate([z_val_neg, z_val[1:]])
                 dist  = np.concatenate([ dist_neg,  dist[1:]])
 
+            dist, z_val = self._ensure_monotony(dist, z_val)
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
 
             v0 = get_relativistic_velocity(electron.E_kin)
