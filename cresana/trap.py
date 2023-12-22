@@ -636,11 +636,12 @@ class ArbitraryTrap(Trap):
             left, r_f_left = self._find_zmax_and_rf(electron, positive_branch=False)
 
             def r_f(z):
+                z = np.atleast_1d(z)
                 r = np.empty_like(z)
                 neg = z<0
                 r[neg] = r_f_left(z[neg])
                 r[~neg] = r_f_right(z[~neg])
-                return r
+                return np.squeeze(r)
 
         if right==0:
 
