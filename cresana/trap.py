@@ -330,8 +330,8 @@ class BathtubTrap(Trap):
         z_left_harmonic = z_np[left_harmonic] + self._L/2
         z_right_harmonic = z_np[right_harmonic] - self._L/2
 
-        B[left_harmonic] = harmonic_potential(z_left_harmonic, self._B0, self._L0)
-        B[right_harmonic] = harmonic_potential(z_right_harmonic, self._B0, self._L0)
+        B[left_harmonic] = harmonic_potential(r, z_left_harmonic, self._B0, self._L0)
+        B[right_harmonic] = harmonic_potential(r, z_right_harmonic, self._B0, self._L0)
 
         return B[0] #undo the expand_dims in first line
 
