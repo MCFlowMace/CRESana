@@ -305,7 +305,7 @@ class BoxTrap(Trap):
 
 class BathtubTrap(Trap):
 
-    def __init__(self, B0, L, add_gradB=True, add_curvB=True):
+    def __init__(self, B0, L, L0, add_gradB=True, add_curvB=True):
         warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
         Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
