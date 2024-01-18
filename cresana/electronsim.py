@@ -146,6 +146,10 @@ class ElectronSim:
         self.pitch = pitch
         self.B_direction = B_direction
         self.w = w
+
+    def set_E_kin(self, E_kin):
+        self.E_kin = E_kin
+        self.w = get_omega_cyclotron(self.B_vals, E_kin)
         
 
 class ElectronSimulator:
