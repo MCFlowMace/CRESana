@@ -115,6 +115,46 @@ class Coil:
         #return B
         return B_raw
 
+class CoilPath:
+
+    def __init__(self, path, current):
+        self.current = current
+        self.path = path
+        self.dl   = np.diff(self.path, axis=0)
+        self.r_prime = self.path[:-1] + 0.5*self.dl
+        self.C = mu0*self.current/4/np.pi
+
+    def __str__(self):
+        return f'CoilPath: nElements={len(self.path)}, current={self.current}'
+
+    def __repr__(self):
+        return str(self)
+
+    def evaluate_B(self, pos, derivatives=False):
+        # convert form (r, z) to (x, y=0, z)
+        eval_pos = np.zeros_like(pos.shape[:-1]+(3,))
+        eval_pos[...,0] = pos[...,0]
+        eval_pos[...,2] = pos[...,1]
+
+        # calculates Bx, By, Bz via the Biot-Savat law
+        B_3D = self.C * np.cross(self.dl[:,None,:], (eval_pos[None,:,:] - self.r_prime[:,None,:]))/ np.linalg.norm(eval_pos[None,:,:] - self.r_prime[:,None,:], axis=-1)[:,:,None]**3
+        B_3D = np.sum(B_3D, axis=0)
+
+        B = np.empty_like(pos)
+        B[...,0] = temp[...,0]
+        B[...,1] = temp[...,2]
+
+        if not derivatives:
+            return B
+
+        raise NotImplementedError("This functionality is not implemented yet")
+        dB = np.empty(pos.shape[:-1]+(3,))
+        dBrho_rho = dB[...,0]
+        dBrho_z = dB[...,1]
+        dBz_z = dB[...,2]
+
+        return B, dB
+
 class Field(ABC):
 
     def __init__(self):
