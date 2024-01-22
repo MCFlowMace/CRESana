@@ -305,7 +305,7 @@ class BoxTrap(Trap):
 
 class BathtubTrap(Trap):
 
-    def __init__(self, B0, L, add_gradB=True, add_curvB=True):
+    def __init__(self, B0, L, L0, add_gradB=True, add_curvB=True):
         warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
         Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
@@ -330,8 +330,8 @@ class BathtubTrap(Trap):
         z_left_harmonic = z_np[left_harmonic] + self._L/2
         z_right_harmonic = z_np[right_harmonic] - self._L/2
 
-        B[left_harmonic] = harmonic_potential(z_left_harmonic, self._B0, self._L0)
-        B[right_harmonic] = harmonic_potential(z_right_harmonic, self._B0, self._L0)
+        B[left_harmonic] = harmonic_potential(r, z_left_harmonic, self._B0, self._L0)
+        B[right_harmonic] = harmonic_potential(r, z_right_harmonic, self._B0, self._L0)
 
         return B[0] #undo the expand_dims in first line
 
