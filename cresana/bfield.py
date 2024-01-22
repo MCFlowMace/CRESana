@@ -132,20 +132,20 @@ class CoilPath:
 
     def evaluate_B(self, pos, derivatives=False):
         # convert form (r, z) to (x, y=0, z)
-        eval_pos = np.zeros_like(pos.shape[:-1]+(3,))
-        eval_pos[...,0] = pos[...,0]
-        eval_pos[...,2] = pos[...,1]
+        pos_3D = np.zeros(pos.shape[:-1]+(3,))
+        pos_3D[...,0] = pos[...,0]
+        pos_3D[...,2] = pos[...,1]
 
         # calculates Bx, By, Bz via the Biot-Savat law
-        B_3D = self.C * np.cross(self.dl[:,None,:], (eval_pos[None,:,:] - self.r_prime[:,None,:]))/ np.linalg.norm(eval_pos[None,:,:] - self.r_prime[:,None,:], axis=-1)[:,:,None]**3
+        B_3D = self.C * np.cross(self.dl[:,None,:], (pos_3D[None,:,:] - self.r_prime[:,None,:]))/ np.linalg.norm(pos_3D[None,:,:] - self.r_prime[:,None,:], axis=-1)[:,:,None]**3
         B_3D = np.sum(B_3D, axis=0)
 
-        B = np.empty_like(pos)
-        B[...,0] = temp[...,0]
-        B[...,1] = temp[...,2]
+        B_2D = np.empty_like(pos)
+        B_2D[...,0] = B_3D[...,0]
+        B_2D[...,1] = B_3D[...,2]
 
         if not derivatives:
-            return B
+            return B_2D
 
         raise NotImplementedError("This functionality is not implemented yet")
         dB = np.empty(pos.shape[:-1]+(3,))
@@ -153,7 +153,7 @@ class CoilPath:
         dBrho_z = dB[...,1]
         dBz_z = dB[...,2]
 
-        return B, dB
+        return B_2D, dB
 
 class Field(ABC):
 
