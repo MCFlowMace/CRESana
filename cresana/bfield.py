@@ -78,7 +78,7 @@ class Coil:
 
         Bz[...] = C/(2*alpha**2*beta)*((a**2 - r**2)*E_k2 + alpha**2*K_k2)
 
-        if self.alpha!=0
+        if self.alpha!=0:
             B_raw = np.empty_like(pos)
             Brho_raw = B_raw[...,0]
             Bz_raw = B_raw[...,1]
