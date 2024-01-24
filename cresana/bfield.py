@@ -348,13 +348,17 @@ class Field(ABC):
 
         plt.show()
 
-    def plot_field_lines(self,r0, dr, nr, zmax, dz=0.1, z0=0., nz=1000, name=None):
+    def plot_field_lines(self,r0, dr, nr, zmax, dz=0.1, z0=0., nz=1000, n_arrow=5, head_width=.005, head_length=0.02, overhang=0.3, name=None):
         color = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
         r_vals = np.linspace(r0-dr, r0+dr, nr)
 
         z = np.linspace(-zmax, zmax, nz)
 
-        for r in r_vals:
+        fig, ax = plt.subplots()
+
+        z_arrows = np.linspace(-zmax, zmax, 2*(n_arrow+1))[1:-1]
+
+        for i,r in enumerate(r_vals):
             field_line_pos = self.gen_field_line(r, z0, dz, zmax, positive_branch=True)
             field_line_neg = self.gen_field_line(r, z0, dz, zmax, positive_branch=False)
 
@@ -365,15 +369,24 @@ class Field(ABC):
 
            # r_ = field_line(np.abs(z))
 
-            plt.plot(z,r_, c=color)
+            ax.plot(z,r_, c=color)
 
-        plt.xlabel('z [m]')
-        plt.ylabel('r [m]')
+            z_arrows_ = z_arrows[i%2::2]
+            for z_ in z_arrows_:
+                dz_ = dz*1
+                z_dz = z_+dz_
+                r_z = field_line_neg(z_) if z_<0. else field_line_pos(z_)
+                r_zdz = field_line_neg(z_dz) if z_dz<0. else field_line_pos(z_dz)
+
+                plt.arrow(z_, r_z, dz_, r_zdz-r_z, shape='full', lw=0, length_includes_head=False, head_width=head_width, head_length=head_length, overhang=overhang, color=color)
+
+        ax.set_xlabel('z [m]')
+        ax.set_ylabel('r [m]')
 
         if name is not None:
-            plt.savefig(name+'_field_lines.png', dpi=600)
+            fig.savefig(name+'_field_lines.png', dpi=600)
 
-        plt.show()
+        return fig, ax
 
 class MultiCoilField(Field):
     def __init__(self, coils, background_field):
