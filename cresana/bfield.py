@@ -19,25 +19,25 @@ from .physicsconstants import mu0
 
 class Coil:
 
-    def __init__(self, radius, z0, turns, current):
+    def __init__(self, radius, z0, turns, current, r0=0., alpha=0.):
         self.radius = radius
         self.turns = turns
         self.current = current
         self.z0 = z0
-        self.r0 = 0
-        self.alpha = 0
+        self.r0 = r0
+        self.alpha = alpha
         self.C = mu0*self.current*self.turns/np.pi
 
     def __str__(self):
-        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}'
+        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}, r0={self.r0}, alpha={self.alpha}'
 
     def __repr__(self):
         return str(self)
 
     def get_path(self):
         t = np.linspace(0,2*np.pi, 1000)
-        xline = self.r_coil*np.cos(t) - self.r0
-        yline = self.r_coil*np.sin(t)
+        xline = self.radius*np.cos(t) - self.r0
+        yline = self.radius*np.sin(t)
         zline = np.ones_like(t)*self.z0
 
         return np.sin(self.alpha)*zline-np.cos(self.alpha)*xline, yline, np.cos(self.alpha)*zline - np.sin(self.alpha)*xline
