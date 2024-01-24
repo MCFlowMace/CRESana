@@ -133,6 +133,7 @@ class Trap(ABC):
             if self.add_curvB:
                 v_drift -= get_v_curv(E_kin, pitch, w, curv)
 
+
             coords = np.stack((np.empty_like(z),np.empty_like(z),z),axis=-1)
 
             coords[...,0], coords[...,1] = self.calc_xy(r, phi, v_drift, t)
@@ -140,6 +141,17 @@ class Trap(ABC):
             return coords, pitch, B, E_kin, w
 
         return f
+    
+    def get_w_drift(self, electron, r, z):
+        B, grad, curv = self.get_grad_mag(r, z)
+        w = get_omega_cyclotron(B, electron.E_kin)
+        v_drift = get_v_gradB(electron.E_kin, electron.pitch, B, w, grad)
+        v_drift -= get_v_curv(electron.E_kin, electron.pitch, w, curv)
+        zero = r==0
+        w = np.zeros_like(v_drift)
+        w[~zero] = v_drift[~zero]/r[~zero]
+        return w
+
 
 def harmonic_potential(r, z, B0, L0):
     a1 = B0
