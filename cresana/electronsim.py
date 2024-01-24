@@ -70,10 +70,9 @@ class Electron:
         r = 0. if abs(r)<1e-8 else r
         self._x0 = r*np.cos(phi)
         self._y0 = r*np.sin(phi)
-        #self._z0 = z0
-        self._z0 = 0
+        self._z0 = z0
         if z0!=0:
-            warn('Using z0!=0 is not supported by all traps in their current implementations! For this reason z0 is ignored. Sorry.')
+            warn('Using z0!=0 is not supported by all traps in their current implementations! Check your trap if it does support it!.')
         self._v_phi = v_phi
         self._v0 = get_relativistic_velocity(E_kin)
         self._t_len = t_len
@@ -147,6 +146,10 @@ class ElectronSim:
         self.pitch = pitch
         self.B_direction = B_direction
         self.w = w
+
+    def set_E_kin(self, E_kin):
+        self.E_kin = E_kin
+        self.w = get_omega_cyclotron(self.B_vals, E_kin)
         
 
 class ElectronSimulator:

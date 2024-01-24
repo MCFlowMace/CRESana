@@ -12,7 +12,7 @@ __all__ = []
 import numpy as np
 from scipy.integrate import cumtrapz
 
-from .cyclotronphysics import AnalyticCyclotronField, get_radiated_power
+from .cyclotronphysics import AnalyticCyclotronField, get_radiated_power, get_omega_cyclotron
 from .retardedtime import TaylorRetardedSimCalculator, ForwardRetardedSimCalculator
 from .physicsconstants import ev
 
@@ -144,8 +144,11 @@ class Simulation:
         if not self.use_energy_loss:
             print('Sampling without energy loss')
             #non-causal samples have energy 1.0 assigned
-            ind = np.argmin(retarded_electron_sim.E_kin==1.0, axis=-1)
-            retarded_electron_sim.E_kin = retarded_electron_sim.E_kin[([np.arange(ind.shape[0])], [ind])].transpose()
+            #ind = np.argmin(retarded_electron_sim.E_kin==1.0, axis=-1)
+            #retarded_electron_sim.E_kin = retarded_electron_sim.E_kin[([np.arange(ind.shape[0])], [ind])].transpose()
+            E_kin = retarded_electron_sim.E_kin.copy()
+            E_kin[...] = np.expand_dims(retarded_electron_sim.E_kin[...,0],-1)
+            retarded_electron_sim.set_E_kin(E_kin)
 
         cyclotron_field = AnalyticCyclotronField(retarded_electron_sim, n_harmonic=1)
         
@@ -156,6 +159,7 @@ class Simulation:
             P_transmitted = ev*get_radiated_power(retarded_electron_sim.E_kin, 
                                                 retarded_electron_sim.pitch, 
                                                 retarded_electron_sim.B_vals)
+            phase = 0.
         
         if not self.use_polarization:
             print('Sampling without polarization mismatch')

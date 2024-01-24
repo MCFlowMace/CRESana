@@ -8,7 +8,7 @@ Date: May 17, 2023
 """
 
 from abc import ABC, abstractmethod
-from math import sqrt
+from math import sqrt, pi
 import dill as pickle
 
 from .electronsim import Electron, AnalyticSimulation
@@ -18,17 +18,20 @@ from .physicsconstants import speed_of_light
 
 class CRESanaModel(ABC):
 
-    def __init__(self, sr, f_LO, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False):
+    def __init__(self, sr, f_LO, pitch_limit=None, name='NoName', power_efficiency=1., flattened=True, return_electron_simulation=False, sampling_configuration={}):
         self.sr = sr
         self.dt = 1/sr
         self.f_LO = f_LO
         self.flattened = flattened
         self.return_electron_simulation = return_electron_simulation
         self._n_samples = None
+        self._pitch_limit = pitch_limit
         self.name = name
         self.power_efficiency = power_efficiency
         self.f_min = self.f_LO-self.sr/2
         self.far_field_distance = 2*speed_of_light/self.f_min
+        self.terminate_invalid_volume = True
+        self._sampling_configuration = sampling_configuration
         self.init_trap()
         self.init_array()
 
@@ -68,10 +71,19 @@ class CRESanaModel(ABC):
     def n_samples(self, n_samples):
         self._n_samples = n_samples
 
-    def __call__(self, E_kin, pitch, r, t0, tau):
-        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}')
-        z0 = 0.0
-        electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0)
+    def set_sampling_configuration(self, **kwargs):
+        self._sampling_configuration = kwargs
+
+    def __call__(self, E_kin, pitch, r, t0, tau, phi_r=0., z0=0.):
+        print(f'Calling model for E_kin={E_kin}, pitch={pitch}, r={r}, t0={t0}, tau={tau}, phi_r={phi_r}, z0={z0}')
+
+        if self._pitch_limit is not None:
+            if abs(90.-pitch)<self._pitch_limit:
+                print(f'Ran into pitch limit with pitch={pitch} setting to pitch=90 instead')
+                pitch = 90.
+
+
+        electron = Electron(E_kin, pitch, t_start=t0, t_len=tau, r=r, z0=z0, phi=phi_r)
         data, electron_sim = self._simulate(electron)
 
         if self.flattened:
@@ -95,7 +107,17 @@ class CRESanaModel(ABC):
         if electron.r>self.r_max:
             msg = f'Electron at r={electron.r} is outside of the valid cylinder volume with R={self.r_max}'
             msg += '\n(Either it is too close to coils for the adiabatic assumption or it is not in the antenna far-field. Both assumption required in CRESana)'
-            raise ValueError(msg)
+            if self.terminate_invalid_volume:
+                raise ValueError(msg)
+
+        pitch = electron.pitch/pi*180    
+        pitch_max = 180-self.pitch_min
+        pitch_min = self.pitch_min
+
+        if pitch<pitch_min or pitch>pitch_max:
+            msg = f'Electron with pitch={pitch} is outside valid pitch range with pitch_min={pitch_min}'
+            if self.terminate_invalid_volume:
+                raise ValueError(msg)
 
     def _simulate(self, electron):
         self.check_sample_time(electron)
@@ -108,7 +130,7 @@ class CRESanaModel(ABC):
 
     def simulate(self, electron):
         sim = self._get_electron_simulator(electron)
-        simulation = Simulation(self.array, self.sr, self.f_LO)
+        simulation = Simulation(self.array, self.sr, self.f_LO, **self._sampling_configuration)
         samples = simulation.get_samples(self.n_samples, sim)*sqrt(self.power_efficiency)
         return samples, sim.electron_sim
     
