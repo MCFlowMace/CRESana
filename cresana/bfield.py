@@ -34,6 +34,14 @@ class Coil:
     def __repr__(self):
         return str(self)
 
+    def get_path(self):
+        t = np.linspace(0,2*np.pi, 1000)
+        xline = self.r_coil*np.cos(t) - self.r0
+        yline = self.r_coil*np.sin(t)
+        zline = np.ones_like(t)*self.z0
+
+        return np.sin(self.alpha)*zline-np.cos(self.alpha)*xline, yline, np.cos(self.alpha)*zline - np.sin(self.alpha)*xline
+
     def evaluate_B(self, pos, derivatives=False):
         # Analytic part based on
         # https://ntrs.nasa.gov/api/citations/20140002333/downloads/20140002333.pdf
@@ -417,6 +425,9 @@ class MultiCoilField(Field):
 
     def evaluate_B(self, pos, derivatives=False):
 
+        if any([c.alpha!=0 or c.r0!=0 for c in self.coils]):
+            warn("CRESana was developed assuming rotational symmetry. The use of misaligned coils is not rotational symmetric and results may be wrong.", UserWarning)
+
         if not derivatives:
 
             B = np.zeros_like(pos)
@@ -450,16 +461,8 @@ class MultiCoilField(Field):
         ax.view_init(vertical_axis='y')
         ax.set_title(f'Background field {self.background_field:5.3f} T')
 
-        t = np.linspace(0,2*np.pi, 1000)
-
         for c in self.coils:
-
-            r_coil = c.radius
-            z0 = c.z0
-
-            xline = r_coil*np.cos(t)
-            yline = r_coil*np.sin(t)
-            zline = np.ones_like(t)*z0
+            xline, yline, zline = c.get_path()
             ax.plot3D(xline, yline, zline)
 
         if name is not None:
