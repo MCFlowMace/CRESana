@@ -45,11 +45,14 @@ class Coil:
     def evaluate_B(self, pos, derivatives=False):
         # Analytic part based on
         # https://ntrs.nasa.gov/api/citations/20140002333/downloads/20140002333.pdf
-        rho_raw = pos[...,0] - self.r0
-        z_raw = pos[...,1] - self.z0
+        rho = pos[...,0] - self.r0
+        z = pos[...,1] - self.z0
 
-        z = np.cos(self.alpha)*z_raw - np.sin(self.alpha)*rho_raw
-        rho = np.sin(self.alpha)*z_raw + np.cos(self.alpha)*rho_raw
+        if self.alpha != 0:
+            rho_raw = rho[:]
+            z_raw = z[:]
+            z = np.cos(self.alpha)*z_raw - np.sin(self.alpha)*rho_raw
+            rho = np.sin(self.alpha)*z_raw + np.cos(self.alpha)*rho_raw
 
         B = np.empty_like(pos)
         Brho = B[...,0]
@@ -75,12 +78,16 @@ class Coil:
 
         Bz[...] = C/(2*alpha**2*beta)*((a**2 - r**2)*E_k2 + alpha**2*K_k2)
 
-        B_raw = np.empty_like(pos)
-        Brho_raw = B_raw[...,0]
-        Bz_raw = B_raw[...,1]
+        if self.alpha!=0
+            B_raw = np.empty_like(pos)
+            Brho_raw = B_raw[...,0]
+            Bz_raw = B_raw[...,1]
 
-        Bz_raw[...] =   np.cos(-self.alpha)*Bz - np.sin(-self.alpha)*Brho
-        Brho_raw[...] = np.sin(-self.alpha)*Bz + np.cos(-self.alpha)*Brho
+            Bz_raw[...] =   np.cos(-self.alpha)*Bz - np.sin(-self.alpha)*Brho
+            Brho_raw[...] = np.sin(-self.alpha)*Bz + np.cos(-self.alpha)*Brho
+
+            Brho = Brho_raw
+            Bz = Bz_raw
 
         if derivatives:
             dB = np.empty(pos.shape[:-1]+(3,))
@@ -110,18 +117,22 @@ class Coil:
             dBz_z[...] = C*z/(2*alpha**4*beta**3)*((6*a**2*(rho**2 - z**2) - 7*a**4 + (rho**2 + z**2)**2)*E_k2
                                               + alpha**2*(a**2 - rho**2 - z**2)*K_k2)
 
-            dB_raw = np.empty(pos.shape[:-1]+(3,))
-            dBrho_rho_raw = dB_raw[...,0]
-            dBrho_z_raw = dB_raw[...,1]
-            dBz_z_raw = dB_raw[...,2]
+            if self.alpha!=0:
+                dB_raw = np.empty(pos.shape[:-1]+(3,))
+                dBrho_rho_raw = dB_raw[...,0]
+                dBrho_z_raw = dB_raw[...,1]
+                dBz_z_raw = dB_raw[...,2]
 
-            dBz_z_raw[...] = np.cos(-self.alpha)*dBz_z - np.sin(-self.alpha)*dBrho_z
-            dBrho_z_raw[...] = np.sin(-self.alpha)*dBz_z + np.cos(-self.alpha)*dBrho_z
-            dBrho_rho_raw[...] = np.sin(-self.alpha)*dBrho_z + np.cos(-self.alpha)*dBrho_rho
-            #return B, dB
-            return B_raw, dB_raw
-        #return B
-        return B_raw
+                dBz_z_raw[...] = np.cos(-self.alpha)*dBz_z - np.sin(-self.alpha)*dBrho_z
+                dBrho_z_raw[...] = np.sin(-self.alpha)*dBz_z + np.cos(-self.alpha)*dBrho_z
+                dBrho_rho_raw[...] = np.sin(-self.alpha)*dBrho_z + np.cos(-self.alpha)*dBrho_rho
+
+                dBz_z = dBz_z_raw
+                dBrho_z = dBrho_z_raw
+                dBrho_rho = dBrho_rho_raw
+
+            return B, dB
+        return B
 
 class Field(ABC):
 
