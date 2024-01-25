@@ -19,24 +19,40 @@ from .physicsconstants import mu0
 
 class Coil:
 
-    def __init__(self, radius, z0, turns, current):
+    def __init__(self, radius, z0, turns, current, r0=0., alpha=0.):
         self.radius = radius
         self.turns = turns
         self.current = current
         self.z0 = z0
+        self.r0 = r0
+        self.alpha = alpha
         self.C = mu0*self.current*self.turns/np.pi
 
     def __str__(self):
-        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}'
+        return f'd={self.radius*2}, z={self.z0}, turns={self.turns}, current={self.current}, r0={self.r0}, alpha={self.alpha}'
 
     def __repr__(self):
         return str(self)
 
+    def get_path(self):
+        t = np.linspace(0,2*np.pi, 1000)
+        xline = self.radius*np.cos(t) - self.r0
+        yline = self.radius*np.sin(t)
+        zline = np.ones_like(t)*self.z0
+
+        return np.sin(self.alpha)*zline-np.cos(self.alpha)*xline, yline, np.cos(self.alpha)*zline - np.sin(self.alpha)*xline
+
     def evaluate_B(self, pos, derivatives=False):
         # Analytic part based on
         # https://ntrs.nasa.gov/api/citations/20140002333/downloads/20140002333.pdf
-        rho = pos[...,0]
+        rho = pos[...,0] - self.r0
         z = pos[...,1] - self.z0
+
+        if self.alpha != 0:
+            rho_raw = rho[:]
+            z_raw = z[:]
+            z = np.cos(self.alpha)*z_raw - np.sin(self.alpha)*rho_raw
+            rho = np.sin(self.alpha)*z_raw + np.cos(self.alpha)*rho_raw
 
         B = np.empty_like(pos)
         Brho = B[...,0]
@@ -61,6 +77,17 @@ class Coil:
                         *((a**2 + r[~on_axis]**2)*E_k2[~on_axis]-alpha[~on_axis]**2*K_k2[~on_axis]))
 
         Bz[...] = C/(2*alpha**2*beta)*((a**2 - r**2)*E_k2 + alpha**2*K_k2)
+
+        if self.alpha!=0:
+            B_raw = np.empty_like(pos)
+            Brho_raw = B_raw[...,0]
+            Bz_raw = B_raw[...,1]
+
+            Bz_raw[...] =   np.cos(-self.alpha)*Bz - np.sin(-self.alpha)*Brho
+            Brho_raw[...] = np.sin(-self.alpha)*Bz + np.cos(-self.alpha)*Brho
+
+            Brho = Brho_raw
+            Bz = Bz_raw
 
         if derivatives:
             dB = np.empty(pos.shape[:-1]+(3,))
@@ -90,8 +117,21 @@ class Coil:
             dBz_z[...] = C*z/(2*alpha**4*beta**3)*((6*a**2*(rho**2 - z**2) - 7*a**4 + (rho**2 + z**2)**2)*E_k2
                                               + alpha**2*(a**2 - rho**2 - z**2)*K_k2)
 
-            return B, dB
+            if self.alpha!=0:
+                dB_raw = np.empty(pos.shape[:-1]+(3,))
+                dBrho_rho_raw = dB_raw[...,0]
+                dBrho_z_raw = dB_raw[...,1]
+                dBz_z_raw = dB_raw[...,2]
 
+                dBz_z_raw[...] = np.cos(-self.alpha)*dBz_z - np.sin(-self.alpha)*dBrho_z
+                dBrho_z_raw[...] = np.sin(-self.alpha)*dBz_z + np.cos(-self.alpha)*dBrho_z
+                dBrho_rho_raw[...] = np.sin(-self.alpha)*dBrho_z + np.cos(-self.alpha)*dBrho_rho
+
+                dBz_z = dBz_z_raw
+                dBrho_z = dBrho_z_raw
+                dBrho_rho = dBrho_rho_raw
+
+            return B, dB
         return B
 
 class Field(ABC):
@@ -409,6 +449,9 @@ class MultiCoilField(Field):
 
     def evaluate_B(self, pos, derivatives=False):
 
+        if any([c.alpha!=0 or c.r0!=0 for c in self.coils]):
+            warn("CRESana was developed assuming rotational symmetry. The use of misaligned coils is not rotational symmetric and results may be wrong.", UserWarning)
+
         if not derivatives:
 
             B = np.zeros_like(pos)
@@ -442,16 +485,8 @@ class MultiCoilField(Field):
         ax.view_init(vertical_axis='y')
         ax.set_title(f'Background field {self.background_field:5.3f} T')
 
-        t = np.linspace(0,2*np.pi, 1000)
-
         for c in self.coils:
-
-            r_coil = c.radius
-            z0 = c.z0
-
-            xline = r_coil*np.cos(t)
-            yline = r_coil*np.sin(t)
-            zline = np.ones_like(t)*z0
+            xline, yline, zline = c.get_path()
             ax.plot3D(xline, yline, zline)
 
         if name is not None:
