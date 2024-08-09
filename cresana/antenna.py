@@ -57,11 +57,11 @@ class Antenna(ABC):
         
         return tf**2*free_space_impedance*w_receiver**2/(np.pi*speed_of_light**2*standard_impedance)
         
-    def get_directivity_gain(self, theta, phi):
-        return self.directivity_factor(theta, phi)**2
+    def get_directivity_gain(self, angle_E_plane, angle_H_plane):
+        return self.directivity_factor(angle_E_plane, angle_H_plane)**2
         
-    def get_gain(self, theta, phi, w_receiver):
-        g = self.get_directivity_gain(theta, phi)*self.get_tf_gain(w_receiver)
+    def get_gain(self, angle_E_plane, angle_H_plane, w_receiver):
+        g = self.get_directivity_gain(angle_E_plane, angle_H_plane)*self.get_tf_gain(w_receiver)
         return g
         
     def power_to_amplitude(self, P):
@@ -77,9 +77,9 @@ class Antenna(ABC):
         return phase + angle
         
     def get_voltage(self, copolar_power, field_phase,
-                    theta, phi, w_receiver, real_signal=False):
+                    angle_E_plane, angle_H_plane, w_receiver, real_signal=False):
                         
-        gain = self.get_gain(theta, phi, w_receiver)
+        gain = self.get_gain(angle_E_plane, angle_H_plane, w_receiver)
         U0 = self.power_to_amplitude(copolar_power*gain)
         phase0 = self.get_phase(field_phase, w_receiver)
         element_signals = get_signal(U0, phase0, real=real_signal)
@@ -91,7 +91,7 @@ class Antenna(ABC):
         pass
         
     @abstractmethod
-    def directivity_factor(self, theta, phi):
+    def directivity_factor(self, angle_E_plane, angle_H_plane):
         pass
         
     @abstractmethod
@@ -115,8 +115,8 @@ class IsotropicAntenna(Antenna):
         
         return tf_abs + 0.0j
         
-    def directivity_factor(self, theta, phi):
-        return np.ones_like(theta)
+    def directivity_factor(self, angle_E_plane, angle_H_plane):
+        return np.ones_like(angle_E_plane)
         
     def position_elements(self, positions):
         return positions
@@ -125,27 +125,27 @@ class IsotropicAntenna(Antenna):
         return signals
 
 
-def get_dipole_theta_phi(theta, phi):
+def get_dipole_factor(angle_E_plane, angle_H_plane):
+    # beta is an angle in E_plane but 90deg at normal
+    beta = np.pi/2 - angle_E_plane
+    
+    E_plane_factor = np.zeros_like(beta)
+    
+    nonzero = (beta != 0.0)&(np.abs(beta) != np.pi)
+    
+    E_plane_factor[nonzero] = np.cos(np.pi/2*np.cos(beta[nonzero]))/np.sin(beta[nonzero])
+    H_plane_factor = np.cos(angle_H_plane)
 
-    theta_mod = np.pi/2 - theta
-    
-    theta_factor = np.zeros_like(theta_mod)
-    
-    nonzero = (theta_mod != 0.0)&(np.abs(theta_mod) != np.pi)
-    
-    theta_factor[nonzero] = np.cos(np.pi/2*np.cos(theta_mod[nonzero]))/np.sin(theta_mod[nonzero])
-    phi_factor = np.cos(phi)
-
-    return theta_factor, phi_factor
+    return E_plane_factor, H_plane_factor
 
 
 class GenericAntenna(Antenna):
     
-    def __init__(self, directivity_exponent, gain):
+    def __init__(self, directivity_exponent, gain_dB):
         
         Antenna.__init__(self)
         self.directivity_exponent = directivity_exponent
-        self.lin_gain =  10**(gain/10)
+        self.lin_gain =  10**(gain_dB/10)
         
     def transfer_function(self, w_receiver):
         
@@ -153,17 +153,34 @@ class GenericAntenna(Antenna):
         
         return tf_abs + 0.0j
         
-    def directivity_factor(self, theta, phi):
+    def directivity_factor(self, angle_E_plane, angle_H_plane):
 
-        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
+        E_plane_factor, H_plane_factor = get_dipole_factor(angle_E_plane, angle_H_plane)
         
-        return theta_factor**self.directivity_exponent*phi_factor
+        return E_plane_factor**self.directivity_exponent*H_plane_factor
         
     def position_elements(self, positions):
         return positions
         
     def sum_elements(self, signals):
         return signals
+    
+class DipoleAntenna(GenericAntenna):
+    def __init__(self, gain_dB):
+        DipoleAntenna.__init__(self, directivity_exponent=1, gain_dB=gain_dB)
+        
+    def directivity_factor(self, angle_E_plane, angle_H_plane):
+        # beta is an angle in E_plane but 90deg at normal
+        beta = np.pi/2 - angle_E_plane
+    
+        E_plane_factor = np.zeros_like(beta)
+    
+        nonzero = (beta != 0.0)&(np.abs(beta) != np.pi)
+    
+        E_plane_factor[nonzero] = np.cos(np.pi/2*np.cos(beta[nonzero]))/np.sin(beta[nonzero])
+        
+        # H_plane_factor is 1 and thus does not show up explicitly in calculation
+        return E_plane_factor
 
     
 class SlottedWaveguideAntenna(Antenna):
@@ -194,11 +211,11 @@ class SlottedWaveguideAntenna(Antenna):
     def transfer_function(self, w_receiver):
         return self.interp_tf(w_receiver)
         
-    def directivity_factor(self, theta, phi):
+    def directivity_factor(self, angle_E_plane, angle_H_plane):
     
-        theta_factor, phi_factor = get_dipole_theta_phi(theta, phi)
+        E_plane_factor, H_plane_factor = get_dipole_factor(angle_E_plane, angle_H_plane)
         
-        return theta_factor*phi_factor
+        return E_plane_factor*H_plane_factor
         
     def position_elements(self, positions):
         """
@@ -226,7 +243,12 @@ class SlottedWaveguideAntenna(Antenna):
 class AntennaArray:
 
     def __init__(self, positions, normals, polarizations, antenna):
-
+        # position and orientation of antennas are defined by positions, normals and polarizations (E-plane), 
+        # physical extent does not matter here.
+        # normal direction of antennas
+        # normal and polarization vector define E-plane (plane in which E-field oscillates)
+        # normal and cross_polarization vector define H-plane (plane in which B-field oscillates)
+        
         self.positions = positions
         self.normals = normals
         self.polarizations = polarizations
@@ -238,13 +260,15 @@ class AntennaArray:
         r_project_pol = project_on_plane(-d_vec, self.cross_polarizations)
         r_project_cross = project_on_plane(-d_vec, self.polarizations)
         
-        phi = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
+        # angle in H-plane relative to normal vector
+        angle_H_plane = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_pol, 
                                        np.expand_dims(self.cross_polarizations, 1))
 
-        theta = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
+        # angle in E-plane relative to normal vector
+        angle_E_plane = angle_with_orientation(np.expand_dims(self.normals, 1), r_project_cross, 
                                        np.expand_dims(self.polarizations, 1))
         
-        return theta, phi
+        return angle_E_plane, angle_H_plane
         
     def get_polarization_mismatch(self, pol_x, pol_y, delta_phase):
     
@@ -266,10 +290,10 @@ class AntennaArray:
     def get_voltage(self, received_copolar_field_power, field_phase, 
                     w_receiver, d_vec, real_signal=False):
                         
-        theta, phi = self.get_directivity_angles(d_vec)
+        angle_E_plane, angle_H_plane = self.get_directivity_angles(d_vec)
         
         return self.antenna.get_voltage(received_copolar_field_power, 
-                                        field_phase, theta, phi,
+                                        field_phase, angle_E_plane, angle_H_plane,
                                         w_receiver, real_signal=real_signal)
         
     @classmethod
