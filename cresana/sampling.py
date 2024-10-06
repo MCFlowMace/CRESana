@@ -166,6 +166,7 @@ class Simulation:
         if not self.use_AM:
             print('Sampling without AM')
             received_copolar_field_power = np.mean(received_copolar_field_power, axis=-1, keepdims=True)
+            d_vec[:] = np.expand_dims(self.antenna_array.normals,1)
             
         if not self.use_FM:
             print('Sampling without FM')
