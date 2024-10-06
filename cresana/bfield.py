@@ -455,6 +455,7 @@ class MultiCoilField(Field):
             ax.plot3D(xline, yline, zline)
 
         if name is not None:
+            plt.tight_layout()
             plt.savefig(name+'.png', dpi=600)
 
         plt.show()
