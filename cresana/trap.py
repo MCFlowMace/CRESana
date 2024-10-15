@@ -133,6 +133,7 @@ class Trap(ABC):
             if self.add_curvB:
                 v_drift -= get_v_curv(E_kin, pitch, w, curv)
 
+
             coords = np.stack((np.empty_like(z),np.empty_like(z),z),axis=-1)
 
             coords[...,0], coords[...,1] = self.calc_xy(r, phi, v_drift, t)
@@ -140,6 +141,17 @@ class Trap(ABC):
             return coords, pitch, B, E_kin, w
 
         return f
+    
+    def get_w_drift(self, electron, r, z):
+        B, grad, curv = self.get_grad_mag(r, z)
+        w = get_omega_cyclotron(B, electron.E_kin)
+        v_drift = get_v_gradB(electron.E_kin, electron.pitch, B, w, grad)
+        v_drift -= get_v_curv(electron.E_kin, electron.pitch, w, curv)
+        zero = r==0
+        w = np.zeros_like(v_drift)
+        w[~zero] = v_drift[~zero]/r[~zero]
+        return w
+
 
 def harmonic_potential(r, z, B0, L0):
     a1 = B0
@@ -305,7 +317,7 @@ class BoxTrap(Trap):
 
 class BathtubTrap(Trap):
 
-    def __init__(self, B0, L, add_gradB=True, add_curvB=True):
+    def __init__(self, B0, L, L0, add_gradB=True, add_curvB=True):
         warn("'BathtubTrap' is deprecated in this version. It does not support all the features it should.", DeprecationWarning)
         Trap.__init__(self, add_gradB, add_curvB)
         self._B0 = B0
@@ -330,8 +342,8 @@ class BathtubTrap(Trap):
         z_left_harmonic = z_np[left_harmonic] + self._L/2
         z_right_harmonic = z_np[right_harmonic] - self._L/2
 
-        B[left_harmonic] = harmonic_potential(z_left_harmonic, self._B0, self._L0)
-        B[right_harmonic] = harmonic_potential(z_right_harmonic, self._B0, self._L0)
+        B[left_harmonic] = harmonic_potential(r, z_left_harmonic, self._B0, self._L0)
+        B[right_harmonic] = harmonic_potential(r, z_right_harmonic, self._B0, self._L0)
 
         return B[0] #undo the expand_dims in first line
 
@@ -526,8 +538,15 @@ class ArbitraryTrap(Trap):
 
        # if ind==len(z)-1:
         #    raise RuntimeError('Found guess of root at z=root_guess_max -> Increase "root_guess_max" or reduce "root_guess_steps"!')
+        z_lower = z[ind-1]
+        z_upper = z[ind]
 
-        return z[ind-1], z[ind]
+        equals_zero = np.argwhere(diff==0.)
+        if len(equals_zero>0):
+            ind = equals_zero[0][0]
+            z_lower = z_upper = z[ind]
+
+        return z_lower, z_upper
 
     def min_trapping_angle(self, r):
         B_min = self.B_field(r, 0)
@@ -619,12 +638,37 @@ class ArbitraryTrap(Trap):
 
         root_guess = self.guess_root(r_f, electron.pitch, positive_branch=positive_branch)
 
-        zmax = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
+        if root_guess[0]==root_guess[1]:
+            return root_guess[0], r_f
+
+        result = root_scalar(lambda z: self.adiabatic_difference(r_f, z, electron.pitch),
                             method='secant', x0=root_guess[0],
                             x1=root_guess[1],
-                            rtol=self._root_rtol).root
+                            rtol=self._root_rtol)
+        
+        if not result.converged:
+            raise RuntimeError("Could not determine z_max because root finding didn't converge. Use better resolution for guessing the root (root_guess_max too high and/or root_guess_steps too small)")
 
-        return zmax, r_f
+        return result.root, r_f
+    
+    def _ensure_monotony(self, dist, z):
+        #removes pairs of dist, z where dist is not monotonically increasing
+        #this should solve a numeric issue
+        ind = np.empty_like(dist, dtype=np.bool_)
+        val = dist[0]
+        for i in range(1, len(dist)):
+            if dist[i]>val:
+                val = dist[i]
+                ind[i] = 1
+            else:
+                ind[i] = 0
+
+        removed = np.sum(~ind)
+
+        if removed>0:
+            print(f'Warning: had to remove {removed} elements from the integration results to meet monotonity criterion!!!')
+
+        return dist[ind], z[ind]
 
     def _solve_trajectory(self, electron):
 
@@ -636,11 +680,12 @@ class ArbitraryTrap(Trap):
             left, r_f_left = self._find_zmax_and_rf(electron, positive_branch=False)
 
             def r_f(z):
+                z = np.atleast_1d(z)
                 r = np.empty_like(z)
                 neg = z<0
                 r[neg] = r_f_left(z[neg])
                 r[~neg] = r_f_right(z[~neg])
-                return r
+                return np.squeeze(r)
 
         if right==0:
 
@@ -662,6 +707,7 @@ class ArbitraryTrap(Trap):
                 z_val = np.concatenate([z_val_neg, z_val[1:]])
                 dist  = np.concatenate([ dist_neg,  dist[1:]])
 
+            dist, z_val = self._ensure_monotony(dist, z_val)
             interpolation = make_interp_spline(dist, z_val, bc_type='clamped')
 
             v0 = get_relativistic_velocity(electron.E_kin)
